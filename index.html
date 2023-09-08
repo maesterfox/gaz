@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="">
+  <meta name="author" content="David Fox">
+  <link rel="icon" type="image/png" href="globe.png">
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-search@3.0.2/dist/leaflet-search.min.css" />
+  <script src="https://unpkg.com/leaflet-search@3.0.2/dist/leaflet-search.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.EasyButton/2.4.0/easy-button.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.EasyButton/2.4.0/easy-button.js"></script>
+  <link rel="stylesheet" href="./css/css.css">
+  <title>The Gazetteer</title>
+
+  </head>
+ 
+  <body class="m-0">
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+      <a class="navbar-brand" href="#">MapApp</a>
+      <button class="btn btn-primary" type="button" id="allow-button">Toggle Geolocation</button>
+
+      <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <form class="form-inline my-2 my-lg-0 ml-auto">
+          <input class="form-control mr-sm-2" type="search" placeholder="Search" aria-label="Search" id="location-search">
+          <button class="btn btn-outline-success my-2 my-sm-0" type="button" id="search-button">Search</button>
+        </form>
+      </div>
+    </nav>
+
+    <!-- Fixed Container for Buttons -->
+<div id="fixed-container">
+    <button class="btn btn-primary" type="button" id="return-button" data-toggle="modal" data-target="#returnModal">My Location</button>
+  <button class="btn btn-primary" type="button" id="toggle-weather-button">Weather</button>
+</div>
+
+    
+    <!-- Return to My Location modal -->
+    <div class="modal fade" id="returnModal" tabindex="-1" role="dialog">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Return to My Location</h5>
+          </div>
+          <div class="modal-body">
+            <p>Would you like to return to your current location?</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-primary" id="returnBtn">Yes</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Allow Geolocation modal -->
+    <div class="modal fade" id="allowModal" tabindex="-1" role="dialog">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Allow Geolocation</h5>
+          </div>
+          <div class="modal-body">
+            <p>Would you like to allow geolocation to find your current position?</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-primary" id="allowBtn">Yes</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+      
+      <div id="map"></div>
+        
+    <!-- Div containing map element -->
+    <div id="mapid" class="container-fluid h-100">
+
+       <!-- Weather Modal -->
+<div class="modal fade" id="weather-modal" tabindex="-1" aria-labelledby="weatherModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="weatherModalLabel">Weather Information</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <!-- Insert weather data here -->
+        <p id="weather1"></p>
+        <p id="weather2"></p>
+        <p id="weather3"></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+<script src="./js/main.js"></script>
+<script src="./js/fetch_weather.js"></script>
+
+    
+  
+  </body>
+
+</html>
+
+
+

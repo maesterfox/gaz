@@ -1,0 +1,95 @@
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap");
+
+
+/* Set parent element of the map div to the full height of the viewport so the map in the div can be fullscreen (100% of the screen)*/
+html, body {
+  margin: 0;
+  height: calc(100% - 35px);
+}
+
+/* Set the height to 100% of device */
+#mapid { 
+  height: 100%; 
+}
+
+/* Set custom font for app name */
+#gaz {
+font-family: 'Poppins', cursive, sans-serif;
+font-size: 28px;
+color: rgb(255, 255, 255);
+}
+
+/* Custom width for select element */
+#colsel {
+width: 40%;
+}
+
+/* Flag styling */
+#flag {
+box-shadow: 2px 2px 5px;
+}
+
+/* Icon styling */
+#weathIcon, #mainWeathIcon {
+box-shadow: 2px 2px 5px;
+}
+
+/* Table styling for modals */
+th {
+text-align: center;
+}
+
+/* Popup styling */
+.leaflet-popup-tip-container {
+display: none;
+}
+
+.leaflet-popup {
+margin: 0;
+}
+
+.nesw .leaflet-popup-tip-container {
+display: block;
+margin: auto;
+left: auto;
+}
+
+/* Forecast popup styling */
+.forecast div.leaflet-popup-content {
+align-content: left;
+width: auto;
+}
+
+.leaflet-popup-content-wrapper .leaflet-popup-content {
+text-align: center;
+width: auto;
+}
+
+/* Modal content centering */
+div.modal-dialog.modal-dialog-centered {
+justify-content: center;
+}
+
+div.modal-content {
+align-items: center;
+text-align: center;
+}
+
+.button-container {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1000; /* Ensure buttons are on top of the map */
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  background-color: rgba(255, 255, 255, 0.7); /* Semi-transparent background */
+  border-radius: 5px;
+  margin: 10px;
+}
+
+.button-container button {
+  margin-bottom: 10px;
+}
+
+
