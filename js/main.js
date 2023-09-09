@@ -1,22 +1,73 @@
-// main.js
-
 // Initialize the map
-let mymap = L.map("mapid").setView([51.505, -0.09], 13);
-let userLocation;
-let userLocationMarker; // Declare a variable to store the user location marker
-let isGeolocationEnabled = false; // Initialize geolocation status
-let isWeatherVisible = false;
+let mymap = L.map("mapid");
 
-// Add OpenStreetMap tiles
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 19,
+// Function to locate the user
+function locateUser() {
+  mymap.locate({ setView: true, maxZoom: 16 });
+}
+
+// Automatically locate the user upon loading
+locateUser();
+
+let userLocation;
+let userLocationMarker;
+let isGeolocationEnabled = true;
+let isWeatherVisible = true;
+
+// Add standard map layer
+let standardLayer = L.tileLayer(
+  "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+  {
+    maxZoom: 19,
+  }
+).addTo(mymap);
+
+// Add satellite layer
+let satelliteLayer = L.tileLayer(
+  "http://www.google.cn/maps/vt?lyrs=s@189&gl=cn&x={x}&y={y}&z={z}",
+  {
+    maxZoom: 19,
+  }
+);
+
+// Add EasyButton to toggle layers
+L.easyButton({
+  states: [
+    {
+      stateName: "show-standard",
+      icon: "fa-map",
+      title: "Show Standard Map",
+      onClick: function (btn, map) {
+        map.removeLayer(satelliteLayer);
+        map.addLayer(standardLayer);
+        btn.state("show-satellite");
+      },
+    },
+    {
+      stateName: "show-satellite",
+      icon: "fa-globe",
+      title: "Show Satellite Map",
+      onClick: function (btn, map) {
+        map.removeLayer(standardLayer);
+        map.addLayer(satelliteLayer);
+        btn.state("show-standard");
+      },
+    },
+  ],
 }).addTo(mymap);
 
-// Initialize the button to red and 'Disabled'
-document.getElementById("allow-button").classList.add("btn-danger");
-document.getElementById("allow-button").classList.remove("btn-primary");
-document.getElementById("allow-button").textContent =
-  "Toggle Geolocation (Disabled)";
+// Replace 'My Location' button with EasyButton
+L.easyButton(
+  "fa-crosshairs",
+  function (btn, map) {
+    if (userLocation) {
+      mymap.flyTo(userLocation, 13);
+    } else {
+      console.log("User location is not available");
+    }
+  },
+  "Show Current Location"
+).addTo(mymap);
 
 // Function for current location
 function onLocationFound(e) {
@@ -24,50 +75,75 @@ function onLocationFound(e) {
   userLocationMarker = L.marker(e.latlng)
     .addTo(mymap)
     .bindPopup("You are here")
-    .openPopup(); // Store the marker
-
-  // Change the button to green and 'Enabled'
-  document.getElementById("allow-button").classList.remove("btn-danger");
-  document.getElementById("allow-button").classList.add("btn-success");
-  document.getElementById("allow-button").textContent =
-    "Toggle Geolocation (Enabled)";
-  isGeolocationEnabled = true;
+    .openPopup();
 }
 
-function onLocationError(e) {
-  console.log("Error occurred: ", e.message);
-
-  // Change the button to red and 'Disabled'
-  document.getElementById("allow-button").classList.remove("btn-success");
-  document.getElementById("allow-button").classList.add("btn-danger");
-  document.getElementById("allow-button").textContent =
-    "Toggle Geolocation (Disabled)";
-  isGeolocationEnabled = false;
-}
-
-// Toggle geolocation when clicking the button
-document.getElementById("allow-button").addEventListener("click", function () {
-  if (isGeolocationEnabled) {
-    mymap.stopLocate();
-    if (userLocationMarker) {
-      mymap.removeLayer(userLocationMarker); // Remove the marker
-    }
-
-    // Change the button to red and 'Disabled'
-    document.getElementById("allow-button").classList.remove("btn-success");
-    document.getElementById("allow-button").classList.add("btn-danger");
-    document.getElementById("allow-button").textContent =
-      "Toggle Geolocation (Disabled)";
-    isGeolocationEnabled = false;
-  } else {
-    mymap.locate({ setView: true, maxZoom: 16 });
-    // The button will turn green in the onLocationFound function
-  }
-  $("#allowModal").modal("hide"); // Hide the modal
-});
-
+// Listen for the locationfound event
 mymap.on("locationfound", onLocationFound);
-mymap.on("locationerror", onLocationError);
+
+// Add EasyButton for geolocation toggle
+let geoButton = L.easyButton({
+  states: [
+    {
+      stateName: "enable-geolocation",
+      icon: "fa-circle-o",
+      title: "Enable Geolocation",
+      onClick: function (control) {
+        mymap.locate({ setView: true, maxZoom: 16 });
+        control.state("disable-geolocation");
+      },
+    },
+    {
+      stateName: "disable-geolocation",
+      icon: "fa-dot-circle-o",
+      title: "Disable Geolocation",
+      onClick: function (control) {
+        mymap.stopLocate();
+        control.state("enable-geolocation");
+      },
+    },
+  ],
+}).addTo(mymap);
+
+// Function to fetch weather data for the current location
+function fetchWeatherForCurrentLocation() {
+  if (userLocation) {
+    const lat = userLocation.lat;
+    const lon = userLocation.lng;
+
+    // Fetch weather data using fetch_weather.php
+    $.ajax({
+      url: "./php/fetch_weather.php",
+      type: "GET",
+      dataType: "json",
+      data: { lat: lat, lon: lon },
+      success: function (data) {
+        console.log("Weather data:", data);
+        // Code to display the weather information
+      },
+      error: function (error) {
+        console.error("Error fetching weather data: ", error);
+      },
+    });
+  } else {
+    console.log("User location is not available for fetching weather");
+  }
+}
+
+// Add EasyButton for weather toggle
+L.easyButton(
+  "fa-cloud",
+  function (btn, map) {
+    if (isWeatherVisible) {
+      // Code to hide weather information
+      isWeatherVisible = false;
+    } else {
+      fetchWeatherForCurrentLocation();
+      isWeatherVisible = true;
+    }
+  },
+  "Toggle Weather"
+).addTo(mymap);
 
 // Custom Marker
 let customMarker = L.icon({

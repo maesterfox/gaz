@@ -1,26 +1,23 @@
-// Updated fetchWeatherData function
-function fetchWeatherData(cityName) {
-  $.ajax({
-    url: "./php/fetch_weather.php",
-    type: "GET",
-    data: { city: cityName },
-    success: function (data) {
-      const parsedData = JSON.parse(data);
-      const temperature = parsedData.main.temp;
-      const description = parsedData.weather[0].description;
-      const city = parsedData.name; // Get the city name from the weather data
-      const country = parsedData.sys.country; // Get the country code from the weather data
+function fetchWeatherForCurrentLocation() {
+  if (userLocation) {
+    const lat = userLocation.lat;
+    const lon = userLocation.lng;
 
-      // Update the HTML elements with the weather information
-
-      $("#weather1").text(`Temperature: ${temperature}°C`);
-      $("#weather2").text(`Description: ${description}`);
-      $("#weather3").text(`City: ${city}, Country: ${country}`);
-
-      $("#weather-modal").modal("show");
-    },
-    error: function (error) {
-      console.error("Error fetching data: ", error);
-    },
-  });
+    // Fetch weather data using fetch_weather.php
+    $.ajax({
+      url: "./php/fetch_weather.php",
+      type: "GET",
+      dataType: "json",
+      data: { lat: lat, lon: lon },
+      success: function (data) {
+        // Display weather data
+        console.log("Weather data:", data);
+      },
+      error: function (error) {
+        console.error("Error fetching weather data: ", error);
+      },
+    });
+  } else {
+    console.log("User location is not available for fetching weather");
+  }
 }
