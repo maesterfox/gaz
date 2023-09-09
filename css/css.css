@@ -75,21 +75,3 @@ align-items: center;
 text-align: center;
 }
 
-.button-container {
-  position: absolute;
-  top: 0;
-  right: 0;
-  z-index: 1000; /* Ensure buttons are on top of the map */
-  display: flex;
-  flex-direction: column;
-  padding: 10px;
-  background-color: rgba(255, 255, 255, 0.7); /* Semi-transparent background */
-  border-radius: 5px;
-  margin: 10px;
-}
-
-.button-container button {
-  margin-bottom: 10px;
-}
-
-
