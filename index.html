@@ -79,7 +79,7 @@
     <!-- Div containing map element -->
     <div id="mapid" class="container-fluid h-100">
 
-       <!-- Weather Modal -->
+      <!-- Weather Modal -->
 <div class="modal fade" id="weather-modal" tabindex="-1" aria-labelledby="weatherModalLabel" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -94,18 +94,37 @@
         <p id="weather1"></p>
         <p id="weather2"></p>
         <p id="weather3"></p>
+        <p id="weather4"></p>
+        <p id="weather5"></p>
+        <p id="weather6"></p>
       </div>
     </div>
   </div>
 </div>
 
-<div class="formBlock">
-  <form id="form">
-      <input type="text" name="start" class="input" id="start" placeholder="Choose starting point" />
-      <input type="text" name="end" class="input" id="destination" placeholder="Choose starting point" />
-      <button class="hidden" type="submit">Get Directions</button>
-  </form>
+
+<div class="modal fade" id="mapQuestModal" tabindex="-1" aria-labelledby="mapQuestModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="mapQuestModalLabel">MapQuest Directions</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="mapQuestForm">
+          Start: <input type="text" id="mapQuestStart"><br>
+          End: <input type="text" id="mapQuestEnd"><br>
+          Waypoints: <input type="text" id="mapQuestWaypoints" placeholder="Enter waypoints separated by commas"><br>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="button" id="mapQuestSubmitBtn" class="btn btn-primary">Get Directions</button>
+      </div>
+    </div>
+  </div>
 </div>
+
 
 <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script>
 <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>

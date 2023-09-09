@@ -1,13 +1,22 @@
 <?php
 $apiKey = "b1b39de8b0328204bf0b3e28e4d70c25"; // Replace with your OpenWeather API key
-$city = $_GET["city"]; // The city name passed from the front-end
-$url = "http://api.openweathermap.org/data/2.5/weather?q=$city&appid=$apiKey";
+$lat = $_GET["lat"];
+$lon = $_GET["lon"];
+$zoom = 6; // You can change this
+$date = time(); // Current Unix timestamp
 
-$ch = curl_init();
-curl_setopt($ch, CURLOPT_URL, $url);
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+// Fetch weather data
+$weatherUrl = "http://api.openweathermap.org/data/2.5/weather?lat=$lat&lon=$lon&appid=$apiKey";
+$weatherData = file_get_contents($weatherUrl);
 
-$output = curl_exec($ch);
-curl_close($ch);
+// Generate global precipitation map URL
+$globalPrecipitationMapUrl = "https://maps.openweathermap.org/maps/2.0/radar/$zoom/$lat/$lon?appid=$apiKey&tm=$date";
 
-echo $output;
+// Combine both into one associative array
+$response = [
+    "weatherData" => json_decode($weatherData, true),
+    "globalPrecipitationMapUrl" => $globalPrecipitationMapUrl
+];
+
+// Output the JSON response
+echo json_encode($response);

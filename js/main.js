@@ -3,7 +3,7 @@ let mymap = L.map("mapid");
 
 // Function to locate the user
 function locateUser() {
-  mymap.locate({ setView: true, maxZoom: 16 });
+  mymap.locate({ setView: true, maxZoom: 13 });
 }
 
 // Automatically locate the user upon loading
@@ -61,7 +61,7 @@ L.easyButton(
   "fa-crosshairs",
   function (btn, map) {
     if (userLocation) {
-      mymap.flyTo(userLocation, 13);
+      mymap.flyTo(userLocation, 18);
     } else {
       console.log("User location is not available");
     }
@@ -89,7 +89,7 @@ let geoButton = L.easyButton({
       icon: "fa-circle-o",
       title: "Enable Geolocation",
       onClick: function (control) {
-        mymap.locate({ setView: true, maxZoom: 16 });
+        mymap.locate({ setView: true, maxZoom: 13 });
         control.state("disable-geolocation");
       },
     },
@@ -104,55 +104,6 @@ let geoButton = L.easyButton({
     },
   ],
 }).addTo(mymap);
-
-// Function to fetch weather data for the current location
-function fetchWeatherForCurrentLocation() {
-  if (userLocation) {
-    const lat = userLocation.lat;
-    const lon = userLocation.lng;
-
-    // Fetch weather data using fetch_weather.php
-    $.ajax({
-      url: "./php/fetch_weather.php",
-      type: "GET",
-      dataType: "json",
-      data: { lat: lat, lon: lon },
-      success: function (data) {
-        console.log("Weather data:", data);
-        // Code to display the weather information
-      },
-      error: function (error) {
-        console.error("Error fetching weather data: ", error);
-      },
-    });
-  } else {
-    console.log("User location is not available for fetching weather");
-  }
-}
-
-// Add EasyButton for weather toggle
-L.easyButton(
-  "fa-cloud",
-  function (btn, map) {
-    if (isWeatherVisible) {
-      // Code to hide weather information
-      isWeatherVisible = false;
-    } else {
-      fetchWeatherForCurrentLocation();
-      isWeatherVisible = true;
-    }
-  },
-  "Toggle Weather"
-).addTo(mymap);
-
-// Custom Marker
-let customMarker = L.icon({
-  iconUrl: "located.gif",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-});
-
-let cities = new L.LayerGroup();
 
 // Function to populate cities dynamically
 function populateCities(dataArray) {
@@ -184,7 +135,7 @@ document.addEventListener("DOMContentLoaded", function () {
           if (data.results && data.results.length > 0) {
             const cityInfo = data.results[0];
             const latlng = [cityInfo.geometry.lat, cityInfo.geometry.lng];
-            mymap.flyTo(latlng, 19);
+            mymap.flyTo(latlng, 12);
           } else {
             console.log("No results found");
           }
@@ -209,207 +160,130 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 });
 
-// Function to fetch and display flight paths
-function fetchFlightData(origin, destination) {
-  console.log("Inside fetchFlightData function...");
+// Function to dynamically load MapQuest script
+async function loadMapQuestScript() {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src =
+      "https://www.mapquestapi.com/sdk/leaflet/v2.2/mq-map.js?key=GLOA5LGUiuBXQomoYDEMKpEOqDfIJzle";
+    script.onload = resolve;
+    script.onerror = reject;
+    document.body.appendChild(script);
+  });
+}
 
-  $.ajax({
-    url: "./php/fetch_flights.php",
-    type: "GET",
-    success: function (data) {
-      console.log("AJAX success, data fetched:", data);
+// Initialize just the MapQuest functionalities inside this function
+async function initializeMapQuestFunctions() {
+  await loadMapQuestScript();
 
-      const parsedData = JSON.parse(data); // Assuming the data is in JSON format
-      console.log(
-        "Type of parsedData:",
-        typeof parsedData,
-        "Content:",
-        parsedData
-      );
+  // Function to fetch and display MapQuest directions
+  function fetchMapQuestDirections(start, end) {
+    const dir = MQ.routing.directions();
+    dir.route({
+      locations: [start, end],
+    });
+    mymap.addLayer(
+      MQ.routing.routeLayer({
+        directions: dir,
+        fitBounds: true,
+      })
+    );
+  }
 
-      if (Array.isArray(parsedData.states)) {
-        // Filter flights based on origin and destination
-        const relevantFlights = parsedData.states.filter((flight) => {
-          return (
-            flight[originIndex] === origin &&
-            flight[destinationIndex] === destination
-          );
-        });
+  // Add EasyButton for MapQuest toggle
+  L.easyButton(
+    "fa-map-signs",
+    function (btn, map) {
+      $("#mapQuestModal").modal("show");
+    },
+    "Show MapQuest Directions"
+  ).addTo(mymap);
 
-        // Display the relevant flights on the map
-        relevantFlights.forEach((flight) => {
-          // Create a marker for each flight (replace latIndex, lngIndex with actual indices)
-          const marker = L.marker([flight[latIndex], flight[lngIndex]]).addTo(
-            mymap
-          );
+  // Action for MapQuest modal button
+  document
+    .getElementById("mapQuestSubmitBtn")
+    .addEventListener("click", function () {
+      const start = document.getElementById("mapQuestStart").value;
+      const end = document.getElementById("mapQuestEnd").value;
 
-          // Add a popup to the marker
-          marker
-            .bindPopup(
-              `Flight Number: ${flight[flightNumberIndex]}<br>Origin: ${flight[originIndex]}<br>Destination: ${flight[destinationIndex]}`
-            )
-            .openPopup();
-        });
+      if (start && end) {
+        fetchMapQuestDirections(start, end);
+        $("#mapQuestModal").modal("hide");
       } else {
-        console.log(
-          "parsedData.states is not an array. Cannot proceed with filtering."
+        console.log("Start or end location is empty");
+      }
+    });
+}
+
+// Load the MapQuest script and initialize just the MapQuest functions
+loadMapQuestScript(initializeMapQuestFunctions);
+
+// Function to fetch weather data and display it in the modal
+function fetchWeatherForCentralLocation() {
+  const center = mymap.getCenter(); // Get the central coordinates of the map
+  const lat = center.lat;
+  const lon = center.lng;
+
+  // Fetch data using fetch_weather.php
+  $.ajax({
+    url: "./php/fetch_weather.php",
+    type: "GET",
+    dataType: "json",
+    data: { lat: lat, lon: lon },
+    success: function (data) {
+      console.log("Weather data:", data.weatherData);
+
+      // Check if weather data is available
+      if (data.weatherData) {
+        const weatherInfo = data.weatherData;
+        const weatherModal = $("#weather-modal");
+
+        // Populate the modal with weather information
+        $("#weather1").html(
+          `<h3>${weatherInfo.name}, ${weatherInfo.sys.country}</h3>`
         );
+        $("#weather2").html(`<p>Humidity: ${weatherInfo.main.humidity}%</p>`);
+        $("#weather3").html(
+          `<p>Visibility: ${weatherInfo.visibility} meters</p>`
+        );
+        $("#weather4").html(
+          `<p>Rain: ${
+            weatherInfo.rain
+              ? weatherInfo.rain["1h"] || weatherInfo.rain["3h"] || "0"
+              : "0"
+          } mm</p>`
+        );
+        $("#weather5").html(
+          `<p>Snow: ${
+            weatherInfo.snow
+              ? weatherInfo.snow["1h"] || weatherInfo.snow["3h"] || "0"
+              : "0"
+          } mm</p>`
+        );
+        $("#weather6").html(
+          `<p>Time of Calculation: ${new Date(
+            weatherInfo.dt * 1000
+          ).toLocaleTimeString()}</p>`
+        );
+
+        // Display the weather modal
+        weatherModal.modal("show");
+      } else {
+        console.log("Weather data is not available.");
       }
     },
     error: function (error) {
-      console.error("AJAX error:", error);
+      console.error("Error fetching data: ", error);
     },
   });
 }
 
-// Create a popup form
-const popupContent = `
-  <form id="flightForm">
-    Origin: <input type="text" id="origin"><br>
-    Destination: <input type="text" id="destination"><br>
-    <button type="button" id="submitFlight">Submit</button>
-  </form>
-`;
-
-// Add EasyButton for flight paths
-const flightButton = L.easyButton(
-  "fa-plane",
-  function (btn, map) {
-    console.log("EasyButton clicked");
-
-    const popup = L.popup()
-      .setLatLng(map.getCenter())
-      .setContent(popupContent)
-      .openOn(map);
-  },
-  "Show Flight Paths"
-).addTo(mymap);
-
-// Use event delegation to handle the submit button click
-document.addEventListener("click", function (event) {
-  if (event.target.id === "submitFlight") {
-    console.log("Submit button clicked");
-
-    const origin = document.getElementById("origin").value;
-    const destination = document.getElementById("destination").value;
-    fetchFlightData(origin, destination);
-
-    mymap.closePopup();
-  }
-});
-
-// Function to fetch warzones data
-function fetchWarzones() {
-  $.ajax({
-    url: "./php/fetch_warzones.php",
-    type: "GET",
-    dataType: "json",
-    success: function (data) {
-      // Display warzones data (you can modify this part based on your needs)
-      console.log("Warzones data:", data);
-      // Code to display the warzones information in your modal or any other UI element
-    },
-    error: function (error) {
-      console.error("Error fetching warzones data:", error);
-    },
-  });
-}
-
-// Add EasyButton for warzones toggle
+// Add EasyButton to trigger weather data fetching and display for the central location
 L.easyButton(
-  "fa-bomb",
+  "fa-cloud",
   function (btn, map) {
-    fetchWarzones();
+    fetchWeatherForCentralLocation();
   },
-  "Show Warzones"
-).addTo(mymap);
-
-// Function to fetch and display routes
-function runDirection(start, end) {
-  // recreating new map layer after removal
-  map = L.map("map", {
-    layers: MQ.mapLayer(),
-    center: [35.791188, -78.636755],
-    zoom: 12,
-  });
-
-  var dir = MQ.routing.directions();
-
-  dir.route({
-    locations: [start, end],
-  });
-
-  CustomRouteLayer = MQ.Routing.RouteLayer.extend({
-    createStartMarker: (location) => {
-      var custom_icon;
-      var marker;
-
-      custom_icon = L.icon({
-        iconUrl: "img/red.png",
-        iconSize: [20, 29],
-        iconAnchor: [10, 29],
-        popupAnchor: [0, -29],
-      });
-
-      marker = L.marker(location.latLng, { icon: custom_icon }).addTo(map);
-
-      return marker;
-    },
-
-    createEndMarker: (location) => {
-      var custom_icon;
-      var marker;
-
-      custom_icon = L.icon({
-        iconUrl: "img/blue.png",
-        iconSize: [20, 29],
-        iconAnchor: [10, 29],
-        popupAnchor: [0, -29],
-      });
-
-      marker = L.marker(location.latLng, { icon: custom_icon }).addTo(map);
-
-      return marker;
-    },
-  });
-
-  map.addLayer(
-    new CustomRouteLayer({
-      directions: dir,
-      fitBounds: true,
-    })
-  );
-}
-
-// function that runs when form submitted
-function submitForm(event) {
-  event.preventDefault();
-
-  // delete current map layer
-  map.remove();
-
-  // getting form data
-  start = document.getElementById("start").value;
-  end = document.getElementById("destination").value;
-
-  // run directions function
-  runDirection(start, end);
-
-  // reset form
-  document.getElementById("form").reset();
-}
-
-// asign the form to form variable
-const form = document.getElementById("form");
-
-// call the submitForm() function when submitting the form
-form.addEventListener("submit", submitForm);
-
-// Add EasyButton for warzones toggle
-L.easyButton(
-  "fa-map",
-  function (btn, map) {
-    fetchWarzones();
-  },
-  "Show MapForm"
+  "Toggle Weather"
 ).addTo(mymap);
