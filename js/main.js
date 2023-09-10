@@ -249,34 +249,65 @@ L.easyButton(
   "Toggle Weather"
 ).addTo(mymap);
 
-// Function to fetch Wikipedia information for the current location
-function fetchWikipediaInfoForCentralLocation() {
-  const center = mymap.getCenter(); // Get the central coordinates of the map
-  const lat = center.lat;
-  const lon = center.lng;
+// Initialize an empty object to serve as the cache
+let locationCache = {};
 
-  // Fetch Wikipedia information using your PHP script
+// Function to fetch Wikipedia information based on the central location
+function fetchWikipediaForCentralLocation() {
+  console.log("fetchWikipediaForCentralLocation called");
+  const center = mymap.getCenter();
+  const lat = center.lat.toFixed(4); // Round to 4 decimal places
+  const lon = center.lng.toFixed(4); // Round to 4 decimal places
+  const apiKey = "4fe0f4e6120b4529a33583954b82b56d"; // Replace with your OpenCage API key
+
+  // Create a cache key based on the rounded latitude and longitude
+  const cacheKey = `${lat},${lon}`;
+
+  // Check if the location is already cached
+  if (locationCache[cacheKey]) {
+    fetchWikipedia(locationCache[cacheKey]);
+    return;
+  }
+
+  // Reverse geocoding using OpenCage API
+  $.ajax({
+    url: `https://api.opencagedata.com/geocode/v1/json?q=${lat}+${lon}&key=${apiKey}`,
+    type: "GET",
+    success: function (geocodeResult) {
+      const components = geocodeResult.results[0].components;
+      const placeName = `${components.city}, ${components.country}`;
+
+      // Cache the place name
+      locationCache[cacheKey] = placeName;
+
+      // Fetch Wikipedia information
+      fetchWikipedia(placeName);
+    },
+    error: function (error) {
+      console.error("Error in reverse geocoding: ", error);
+    },
+  });
+}
+
+// Function to fetch Wikipedia information based on place name
+function fetchWikipedia(placeName) {
   $.ajax({
     url: "./php/fetch_wikipedia.php",
-    type: "GET",
+    type: "POST",
     dataType: "json",
-    data: { q: `${lat},${lon}`, maxRows: 1 }, // Pass the coordinates to your PHP script
-    success: function (data) {
-      console.log("Wikipedia data:", data.geonames);
-
-      // Check if Wikipedia data is available
-      if (data.geonames.length > 0) {
-        const wikipediaInfo = data.geonames[0];
-        const wikipediaModal = $("#wikipedia-modal");
-
-        // Populate the modal with Wikipedia information
-        $("#wikipedia-title").html(`<h3>${wikipediaInfo.title}</h3>`);
-        $("#wikipedia-summary").html(`<p>${wikipediaInfo.summary}</p>`);
-
-        // Display the Wikipedia modal
-        wikipediaModal.modal("show");
+    data: {
+      q: placeName,
+      maxRows: 1,
+      lang: "en",
+    },
+    success: function (result) {
+      console.log("Wikipedia API Response:", result);
+      if (result.geonames && result.geonames.length > 0) {
+        $("#wikipedia-title").html(result.geonames[0].title);
+        $("#wikipedia-summary").html(result.geonames[0].summary);
+        $("#wikipedia-modal").modal("show");
       } else {
-        console.log("Wikipedia data is not available for this location.");
+        console.error("No geonames data found.");
       }
     },
     error: function (error) {
@@ -285,16 +316,28 @@ function fetchWikipediaInfoForCentralLocation() {
   });
 }
 
-// Add EasyButton for Wikipedia information retrieval
-L.easyButton({
-  states: [
-    {
-      stateName: "fetch-wikipedia",
-      icon: "fa-wikipedia-w",
-      title: "Fetch Wikipedia Information",
-      onClick: function (btn, map) {
-        fetchWikipediaInfoForCentralLocation(); // Call the function to fetch Wikipedia info
-      },
+// Initialize the EasyButton after the document is ready
+$(document).ready(function () {
+  console.log("Document ready, initializing button"); // Debugging line
+
+  // Remove any existing EasyButtons
+  if (mymap.easyButton) {
+    mymap.removeControl(mymap.easyButton);
+  }
+
+  // Explicitly unbind any existing click events from the button
+  $(document).off("click", ".leaflet-easyButton-button");
+
+  // Create a new EasyButton
+  mymap.easyButton = L.easyButton(
+    "fa-wikipedia-w",
+    function (btn, map) {
+      console.log("Button clicked"); // Debugging line
+      fetchWikipediaForCentralLocation();
     },
-  ],
-}).addTo(mymap);
+    "Toggle Wikipedia"
+  ).addTo(mymap);
+
+  // Log the current state of event listeners (for debugging)
+  console.log($._data(document, "events"));
+});
