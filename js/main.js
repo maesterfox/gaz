@@ -121,7 +121,8 @@ document.addEventListener("DOMContentLoaded", function () {
   const searchButton = document.getElementById("search-button");
   const locationSearch = document.getElementById("location-search");
 
-  searchButton.addEventListener("click", function () {
+  // Function to handle the search action
+  function performSearch() {
     const query = locationSearch.value.trim();
 
     if (query) {
@@ -147,6 +148,17 @@ document.addEventListener("DOMContentLoaded", function () {
     } else {
       console.log("Search query is empty");
     }
+  }
+
+  // Add event listener for the search button click
+  searchButton.addEventListener("click", performSearch);
+
+  // Add event listener for the 'Enter' key press in the input field
+  locationSearch.addEventListener("keydown", function (event) {
+    if (event.key === "Enter") {
+      event.preventDefault(); // Prevent the default behavior
+      performSearch(); // Call the search function
+    }
   });
 
   // Action for Return to My Location modal button
@@ -159,65 +171,6 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 });
-
-// Function to dynamically load MapQuest script
-async function loadMapQuestScript() {
-  return new Promise((resolve, reject) => {
-    const script = document.createElement("script");
-    script.type = "text/javascript";
-    script.src =
-      "https://www.mapquestapi.com/sdk/leaflet/v2.2/mq-map.js?key=GLOA5LGUiuBXQomoYDEMKpEOqDfIJzle";
-    script.onload = resolve;
-    script.onerror = reject;
-    document.body.appendChild(script);
-  });
-}
-
-// Initialize just the MapQuest functionalities inside this function
-async function initializeMapQuestFunctions() {
-  await loadMapQuestScript();
-
-  // Function to fetch and display MapQuest directions
-  function fetchMapQuestDirections(start, end) {
-    const dir = MQ.routing.directions();
-    dir.route({
-      locations: [start, end],
-    });
-    mymap.addLayer(
-      MQ.routing.routeLayer({
-        directions: dir,
-        fitBounds: true,
-      })
-    );
-  }
-
-  // Add EasyButton for MapQuest toggle
-  L.easyButton(
-    "fa-map-signs",
-    function (btn, map) {
-      $("#mapQuestModal").modal("show");
-    },
-    "Show MapQuest Directions"
-  ).addTo(mymap);
-
-  // Action for MapQuest modal button
-  document
-    .getElementById("mapQuestSubmitBtn")
-    .addEventListener("click", function () {
-      const start = document.getElementById("mapQuestStart").value;
-      const end = document.getElementById("mapQuestEnd").value;
-
-      if (start && end) {
-        fetchMapQuestDirections(start, end);
-        $("#mapQuestModal").modal("hide");
-      } else {
-        console.log("Start or end location is empty");
-      }
-    });
-}
-
-// Load the MapQuest script and initialize just the MapQuest functions
-loadMapQuestScript(initializeMapQuestFunctions);
 
 // Function to fetch weather data and display it in the modal
 function fetchWeatherForCentralLocation() {
@@ -239,29 +192,37 @@ function fetchWeatherForCentralLocation() {
         const weatherInfo = data.weatherData;
         const weatherModal = $("#weather-modal");
 
+        // Calculate temperature in both Celsius and Fahrenheit
+        const kelvinTemp = weatherInfo.main.temp;
+        const celsiusTemp = (kelvinTemp - 273.15).toFixed(2);
+        const fahrenheitTemp = ((celsiusTemp * 9) / 5 + 32).toFixed(2);
+
         // Populate the modal with weather information
         $("#weather1").html(
           `<h3>${weatherInfo.name}, ${weatherInfo.sys.country}</h3>`
         );
-        $("#weather2").html(`<p>Humidity: ${weatherInfo.main.humidity}%</p>`);
-        $("#weather3").html(
+        $("#weather2").html(
+          `<p>Temperature: ${celsiusTemp}°C / ${fahrenheitTemp}°F</p>`
+        );
+        $("#weather3").html(`<p>Humidity: ${weatherInfo.main.humidity}%</p>`);
+        $("#weather4").html(
           `<p>Visibility: ${weatherInfo.visibility} meters</p>`
         );
-        $("#weather4").html(
+        $("#weather5").html(
           `<p>Rain: ${
             weatherInfo.rain
-              ? weatherInfo.rain["1h"] || weatherInfo.rain["3h"] || "0"
-              : "0"
-          } mm</p>`
-        );
-        $("#weather5").html(
-          `<p>Snow: ${
-            weatherInfo.snow
-              ? weatherInfo.snow["1h"] || weatherInfo.snow["3h"] || "0"
+              ? (weatherInfo.rain["1h"] || 0) + (weatherInfo.rain["3h"] || 0)
               : "0"
           } mm</p>`
         );
         $("#weather6").html(
+          `<p>Snow: ${
+            weatherInfo.snow
+              ? (weatherInfo.snow["1h"] || 0) + (weatherInfo.snow["3h"] || 0)
+              : "0"
+          } mm</p>`
+        );
+        $("#weather7").html(
           `<p>Time of Calculation: ${new Date(
             weatherInfo.dt * 1000
           ).toLocaleTimeString()}</p>`
@@ -287,3 +248,53 @@ L.easyButton(
   },
   "Toggle Weather"
 ).addTo(mymap);
+
+// Function to fetch Wikipedia information for the current location
+function fetchWikipediaInfoForCentralLocation() {
+  const center = mymap.getCenter(); // Get the central coordinates of the map
+  const lat = center.lat;
+  const lon = center.lng;
+
+  // Fetch Wikipedia information using your PHP script
+  $.ajax({
+    url: "./php/fetch_wikipedia.php",
+    type: "GET",
+    dataType: "json",
+    data: { q: `${lat},${lon}`, maxRows: 1 }, // Pass the coordinates to your PHP script
+    success: function (data) {
+      console.log("Wikipedia data:", data.geonames);
+
+      // Check if Wikipedia data is available
+      if (data.geonames.length > 0) {
+        const wikipediaInfo = data.geonames[0];
+        const wikipediaModal = $("#wikipedia-modal");
+
+        // Populate the modal with Wikipedia information
+        $("#wikipedia-title").html(`<h3>${wikipediaInfo.title}</h3>`);
+        $("#wikipedia-summary").html(`<p>${wikipediaInfo.summary}</p>`);
+
+        // Display the Wikipedia modal
+        wikipediaModal.modal("show");
+      } else {
+        console.log("Wikipedia data is not available for this location.");
+      }
+    },
+    error: function (error) {
+      console.error("Error fetching Wikipedia data: ", error);
+    },
+  });
+}
+
+// Add EasyButton for Wikipedia information retrieval
+L.easyButton({
+  states: [
+    {
+      stateName: "fetch-wikipedia",
+      icon: "fa-wikipedia-w",
+      title: "Fetch Wikipedia Information",
+      onClick: function (btn, map) {
+        fetchWikipediaInfoForCentralLocation(); // Call the function to fetch Wikipedia info
+      },
+    },
+  ],
+}).addTo(mymap);
