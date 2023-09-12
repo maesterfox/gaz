@@ -1,5 +1,5 @@
 <?php
-$apiKey = "4fe0f4e6120b4529a33583954b82b56d"; // Replace with your OpenCage API key
+$apiKey = "4fe0f4e6120b4529a33583954b82b56d";
 $query = urlencode($_GET['query']);
 $url = "https://api.opencagedata.com/geocode/v1/json?q=$query&key=$apiKey";
 

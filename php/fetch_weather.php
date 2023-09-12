@@ -1,8 +1,8 @@
 <?php
-$apiKey = "b1b39de8b0328204bf0b3e28e4d70c25"; // Replace with your OpenWeather API key
+$apiKey = "b1b39de8b0328204bf0b3e28e4d70c25";
 $lat = $_GET["lat"];
 $lon = $_GET["lon"];
-$zoom = 6; // You can change this
+$zoom = 6;
 $date = time(); // Current Unix timestamp
 
 // Fetch weather data
