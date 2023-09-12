@@ -1,7 +1,8 @@
 <?php
 $apiKey = "4fe0f4e6120b4529a33583954b82b56d";
-$query = urlencode($_GET['query']);
-$url = "https://api.opencagedata.com/geocode/v1/json?q=$query&key=$apiKey";
+$lat = $_GET['lat'];
+$lng = $_GET['lng'];
+$url = "https://api.opencagedata.com/geocode/v1/json?q=$lat+$lng&key=$apiKey";
 
 $ch = curl_init();
 curl_setopt($ch, CURLOPT_URL, $url);
@@ -14,5 +15,8 @@ if (curl_errno($ch)) {
 
 curl_close($ch);
 
+$data = json_decode($response, true);
+$countryCode = $data['results'][0]['components']['country_code'];
+
 header('Content-Type: application/json');
-echo $response;
+echo json_encode(['countryCode' => strtoupper($countryCode)]);

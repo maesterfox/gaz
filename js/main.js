@@ -142,25 +142,97 @@ class GeoNamesAPI extends APIHandler {
   constructor() {
     super();
     this.markerClusterGroups = {};
+    this.areAirportsDisplayed = false; // Add this line
+    this.airportMarkers = []; // To store the airport markers
   }
 
-  fetchCitiesAndAirports(countryCode, map) {
-    const url = "./php/fetch_geonames_cities_and_airports.php";
-    const data = { countryCode: countryCode };
+  fetchCitiesAndAirports(map) {
+    const bounds = map.getBounds();
+    const southWest = bounds.getSouthWest();
+    const northEast = bounds.getNorthEast();
 
-    this.makeAjaxCall(
-      url,
-      "POST",
-      "json",
-      data,
-      (result) => {
-        // Process the result and add markers to the map
-        // Create different marker cluster groups for cities and airports
+    const bbox = {
+      north: northEast.lat,
+      south: southWest.lat,
+      east: northEast.lng,
+      west: southWest.lng,
+    };
+
+    $.ajax({
+      url: "./php/fetch_geonames.php",
+      type: "GET",
+      dataType: "json",
+      data: { featureCode: "AIRP", maxRows: 500, bbox: bbox },
+      success: function (data) {
+        // Remove existing airport markers if any
+        this.airportMarkers.forEach((marker) => {
+          map.removeLayer(marker);
+        });
+        this.airportMarkers = [];
+
+        // Add new airport markers
+        data.geonames.forEach((airport) => {
+          const marker = L.marker([airport.lat, airport.lng]).addTo(map);
+          marker.bindPopup(`<b>${airport.name}</b><br>${airport.countryName}`);
+          this.airportMarkers.push(marker);
+        });
+
+        // Toggle the display state
+        this.areAirportsDisplayed = !this.areAirportsDisplayed;
+      }.bind(this),
+      error: function (error) {
+        console.error("Error fetching airports: ", error);
       },
-      (error) => {
-        console.error("Error fetching cities and airports: ", error);
-      }
-    );
+    });
+  }
+
+  // In GeoNamesAPI class
+  addCitiesAndAirportsButton(map) {
+    console.log(map.getBounds());
+    L.easyButton({
+      states: [
+        {
+          stateName: "show-cities-and-airports",
+          icon: "fa-plane", // FontAwesome icon class for airports
+          title: "Toggle Cities and Airports",
+          onClick: function (btn, map) {
+            console.log(map); // Debugging line
+            const center = map.getCenter();
+            const lat = center.lat;
+            const lng = center.lng;
+            this.getCountryCodeFromOpenCage(lat, lng)
+              .then((countryCode) => {
+                this.fetchCitiesAndAirports(countryCode, map);
+              })
+              .catch((error) => {
+                console.error("Failed to get country code: ", error);
+              });
+          }.bind(this),
+        },
+      ],
+    }).addTo(map);
+  }
+
+  getCountryCodeFromOpenCage(lat, lng) {
+    return new Promise((resolve, reject) => {
+      $.ajax({
+        url: "./php/fetch_opencage.php",
+        type: "GET",
+        dataType: "json",
+        data: { lat: lat, lng: lng },
+        success: function (data) {
+          if (data && data.countryCode) {
+            resolve(data.countryCode);
+          } else {
+            reject("Country code not found");
+          }
+        },
+        error: function (error) {
+          console.error("Error fetching country code: ", error);
+          reject(error);
+        },
+      });
+    });
   }
 
   fetchHistoricalLandmarks(countryCode, map) {
@@ -209,6 +281,7 @@ class GeoNamesAPI extends APIHandler {
 class MapHandler {
   constructor(mapId) {
     this.map = L.map(mapId);
+    this.map.setView([51.505, -0.09], 13);
     this.userLocation = null;
     this.userLocationMarker = null;
     this.standardLayer = L.tileLayer(
@@ -221,6 +294,7 @@ class MapHandler {
     );
     this.weatherAPI = new WeatherAPI();
     this.wikipediaAPI = new WikipediaAPI();
+    this.geoNamesAPI = new GeoNamesAPI(); // Create an instance of GeoNamesAPI
     this.locationCache = {};
     this.init();
   }
@@ -230,7 +304,7 @@ class MapHandler {
     this.addLayerToggle();
     this.addLocationButton();
     this.addWeatherButton();
-    this.addCitiesAndAirportsButton();
+    this.geoNamesAPI.addCitiesAndAirportsButton(this.map); // Call the method through the instance
     this.addWikipediaButton();
     this.addLandmarkButton();
     this.map.on("locationfound", this.onLocationFound.bind(this));
@@ -261,6 +335,7 @@ class MapHandler {
             map.removeLayer(this.standardLayer);
             map.addLayer(this.satelliteLayer);
             btn.state("show-standard");
+            fetchCitiesAndAirports;
           }.bind(this),
         },
       ],
@@ -304,26 +379,6 @@ class MapHandler {
     ).addTo(this.map);
   }
 
-  addCitiesAndAirportsButton() {
-    L.easyButton({
-      states: [
-        {
-          stateName: "show-cities-and-airports",
-          icon: "fa-plane", // FontAwesome icon class for airports
-          title: "Toggle Cities and Airports",
-          onClick: function (btn, map) {
-            const center = map.getCenter();
-            const lat = center.lat;
-            const lng = center.lng;
-            this.getCountryCode(lat, lng).then((countryCode) => {
-              this.geoNamesAPI.fetchCitiesAndAirports(countryCode, map);
-            });
-          }.bind(this),
-        },
-      ],
-    }).addTo(this.map);
-  }
-
   addLandmarkButton() {
     L.easyButton({
       states: [
@@ -331,13 +386,17 @@ class MapHandler {
           stateName: "show-landmarks",
           icon: '<i class="fa fa-landmark"></i>', // For Landmarks
           title: "Toggle Historical Landmarks",
-          onClick: function (btn, map) {
+          onClick: async function (btn, map) {
             const center = map.getCenter();
             const lat = center.lat;
             const lng = center.lng;
-            this.getCountryCode(lat, lng).then((countryCode) => {
+            try {
+              const countryCode =
+                await this.geoNamesAPI.getCountryCodeFromOpenCage(lat, lng);
               this.geoNamesAPI.fetchHistoricalLandmarks(countryCode, map);
-            });
+            } catch (error) {
+              console.error("Failed to get country code: ", error);
+            }
           }.bind(this),
         },
       ],
