@@ -27,8 +27,7 @@ function fetchCountryCode($lat, $lng)
 }
 
 // Function to make API requests for landmarks, cities, and airports
-// Function to make API requests for landmarks, cities, and airports
-function fetchGeoNamesData($featureCode, $countryCode, $maxRows, $bbox = null)
+function fetchGeoNamesData($featureCode, $countryCode, $maxRows)
 {
     global $apiUrl, $username;
 
@@ -39,13 +38,6 @@ function fetchGeoNamesData($featureCode, $countryCode, $maxRows, $bbox = null)
         'maxRows' => $maxRows,
         'username' => $username,
     );
-
-    if ($bbox) {
-        $params['north'] = $bbox['north'];
-        $params['south'] = $bbox['south'];
-        $params['east'] = $bbox['east'];
-        $params['west'] = $bbox['west'];
-    }
 
     $url = $apiUrl . '?' . http_build_query($params);
     $response = file_get_contents($url);
@@ -58,9 +50,8 @@ function fetchGeoNamesData($featureCode, $countryCode, $maxRows, $bbox = null)
 $countryCode = $_GET['countryCode'] ?? ''; // Replace with the actual country code
 $featureCode = $_GET['featureCode'] ?? ''; // Replace with the actual feature code
 $maxRows = $_GET['maxRows'] ?? 50; // Replace with the actual max rows
-$bbox = $_GET['bbox'] ?? null; // Bounding box for map view
 
-$fetchedData = fetchGeoNamesData($featureCode, $countryCode, $maxRows, $bbox);
+$fetchedData = fetchGeoNamesData($featureCode, $countryCode, $maxRows);
 
 // Process and return the data as needed
 echo json_encode($fetchedData);

@@ -138,19 +138,25 @@ class WikipediaAPI extends APIHandler {
   }
 }
 
+// GeoNamesAPI Class
 class GeoNamesAPI extends APIHandler {
   constructor() {
     super();
     this.markerClusterGroups = {};
-    this.areAirportsDisplayed = false; // Add this line
-    this.airportMarkers = []; // To store the airport markers
+    this.areAirportsDisplayed = false;
+    this.airportMarkers = [];
+    this.map = null; // Store the map reference
+    this.areLandmarksDisplayed = false; // New state variable for landmarks
+    this.landmarkMarkers = []; // New array to store landmark markers
   }
 
-  fetchCitiesAndAirports(map) {
-    const bounds = map.getBounds();
+  fetchCitiesAndAirports(countryCode) {
+    // Get the map bounds
+    const bounds = this.map.getBounds();
     const southWest = bounds.getSouthWest();
     const northEast = bounds.getNorthEast();
 
+    // Define bounding box
     const bbox = {
       north: northEast.lat,
       south: southWest.lat,
@@ -158,56 +164,76 @@ class GeoNamesAPI extends APIHandler {
       west: southWest.lng,
     };
 
-    $.ajax({
-      url: "./php/fetch_geonames.php",
-      type: "GET",
-      dataType: "json",
-      data: { featureCode: "AIRP", maxRows: 500, bbox: bbox },
-      success: function (data) {
-        // Remove existing airport markers if any
-        this.airportMarkers.forEach((marker) => {
-          map.removeLayer(marker);
-        });
-        this.airportMarkers = [];
+    // If airports are already displayed, remove them
+    if (this.areAirportsDisplayed) {
+      this.airportMarkers.forEach((marker) => {
+        this.map.removeLayer(marker);
+      });
+      this.airportMarkers = [];
+      this.areAirportsDisplayed = false;
+    } else {
+      // Fetch and display airports
+      $.ajax({
+        url: "./php/fetch_geonames.php",
+        type: "GET",
+        dataType: "json",
+        data: { featureCode: "AIRP", maxRows: 50, bbox: bbox },
+        success: (data) => {
+          // Remove any existing airport markers
+          this.airportMarkers.forEach((marker) => {
+            this.map.removeLayer(marker);
+          });
+          this.airportMarkers = [];
 
-        // Add new airport markers
-        data.geonames.forEach((airport) => {
-          const marker = L.marker([airport.lat, airport.lng]).addTo(map);
-          marker.bindPopup(`<b>${airport.name}</b><br>${airport.countryName}`);
-          this.airportMarkers.push(marker);
-        });
+          // Create a custom icon for the airplane
+          const customIcon = L.icon({
+            iconUrl: "./plane.png",
+            iconSize: [32, 32],
+            iconAnchor: [16, 16],
+          });
 
-        // Toggle the display state
-        this.areAirportsDisplayed = !this.areAirportsDisplayed;
-      }.bind(this),
-      error: function (error) {
-        console.error("Error fetching airports: ", error);
-      },
-    });
+          // Add new airport markers
+          data.geonames.forEach((airport) => {
+            const marker = L.marker([airport.lat, airport.lng], {
+              icon: customIcon,
+            }).addTo(this.map);
+            marker.bindPopup(
+              `<b>${airport.name}</b><br>${airport.countryName}`
+            );
+            this.airportMarkers.push(marker);
+          });
+
+          // Update the display state
+          this.areAirportsDisplayed = true;
+        },
+        error: (error) => {
+          console.error("Error fetching airports: ", error);
+        },
+      });
+    }
   }
-
   // In GeoNamesAPI class
   addCitiesAndAirportsButton(map) {
-    console.log(map.getBounds());
+    this.map = map;
+
     L.easyButton({
       states: [
         {
           stateName: "show-cities-and-airports",
-          icon: "fa-plane", // FontAwesome icon class for airports
+          icon: '<img src="plane.gif" width="20" height="20">',
           title: "Toggle Cities and Airports",
-          onClick: function (btn, map) {
-            console.log(map); // Debugging line
-            const center = map.getCenter();
+          onClick: (btn) => {
+            const center = this.map.getCenter();
             const lat = center.lat;
             const lng = center.lng;
             this.getCountryCodeFromOpenCage(lat, lng)
               .then((countryCode) => {
-                this.fetchCitiesAndAirports(countryCode, map);
+                this.fetchCitiesAndAirports(countryCode);
               })
               .catch((error) => {
                 console.error("Failed to get country code: ", error);
               });
-          }.bind(this),
+          },
         },
       ],
     }).addTo(map);
@@ -216,13 +242,19 @@ class GeoNamesAPI extends APIHandler {
   getCountryCodeFromOpenCage(lat, lng) {
     return new Promise((resolve, reject) => {
       $.ajax({
-        url: "./php/fetch_opencage.php",
+        url: "./php/fetch_ocairports.php",
         type: "GET",
         dataType: "json",
         data: { lat: lat, lng: lng },
         success: function (data) {
-          if (data && data.countryCode) {
-            resolve(data.countryCode);
+          // Check if data contains the countryCode field
+          if (
+            data &&
+            data.results &&
+            data.results.length > 0 &&
+            data.results[0].components.country_code
+          ) {
+            resolve(data.results[0].components.country_code);
           } else {
             reject("Country code not found");
           }
@@ -235,45 +267,78 @@ class GeoNamesAPI extends APIHandler {
     });
   }
 
-  fetchHistoricalLandmarks(countryCode, map) {
-    const featureCode = "CH"; // Feature code for historical sites
-    const maxRows = 50; // Limit to 50 landmarks
-    const url = "./php/fetch_geonames.php"; // Replace with your PHP URL
-    const data = {
-      countryCode: countryCode,
-      featureCode: featureCode,
-      maxRows: maxRows,
-    };
+  // Inside the GeoNamesAPI class
+  fetchHistoricalLandmarks(map) {
+    // If landmarks are already displayed, remove them
+    if (this.areLandmarksDisplayed) {
+      this.landmarkMarkers.forEach((marker) => {
+        map.removeLayer(marker);
+      });
+      this.landmarkMarkers = [];
+      this.areLandmarksDisplayed = false;
+    } else {
+      const featureCode = "CH"; // Feature code for historical landmarks
+      const iconUrl = "./castle.png"; // Icon URL for historical landmarks
+      const maxRows = 50; // Limit to 50 landmarks
+      const bounds = map.getBounds();
+      const southWest = bounds.getSouthWest();
+      const northEast = bounds.getNorthEast();
+      const landmarkIcon = L.icon({
+        iconUrl: iconUrl,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+      });
 
-    $.ajax({
-      url: url,
-      type: "POST",
-      dataType: "json",
-      data: data,
-      success: (result) => {
-        if (result.geonames && result.geonames.length > 0) {
-          const landmarks = result.geonames;
-          const landmarkMarkers = landmarks.map((landmark) => {
-            return L.marker([landmark.lat, landmark.lng]).bindPopup(
-              `<h3>${landmark.name}</h3>`
-            );
-          });
+      const bbox = {
+        north: northEast.lat,
+        south: southWest.lat,
+        east: northEast.lng,
+        west: southWest.lng,
+      };
 
-          if (!this.markerClusterGroups["landmarks"]) {
-            this.markerClusterGroups["landmarks"] = L.markerClusterGroup();
-          }
+      const center = map.getCenter();
+      const lat = center.lat;
+      const lng = center.lng;
 
-          this.markerClusterGroups["landmarks"].clearLayers();
-          this.markerClusterGroups["landmarks"].addLayers(landmarkMarkers);
-          this.markerClusterGroups["landmarks"].addTo(map);
-        } else {
-          console.error("No historical landmarks found.");
+      this.getCountryCodeFromOpenCage(lat, lng).then((countryCode) => {
+        function zoomIn(lat, lng) {
+          map.setView([lat, lng], 18);
         }
-      },
-      error: (error) => {
-        console.error("Error fetching historical landmarks: ", error);
-      },
-    });
+
+        $.ajax({
+          url: "./php/fetch_geonames.php",
+          type: "GET",
+          dataType: "json",
+          data: { featureCode: featureCode, maxRows: maxRows, bbox: bbox },
+          success: (result) => {
+            if (result.geonames && result.geonames.length > 0) {
+              const landmarks = result.geonames;
+              landmarks.forEach((landmark) => {
+                const popupContent = document.createElement("div");
+                const title = document.createElement("h3");
+                title.textContent = landmark.name;
+                const zoomButton = document.createElement("button");
+                zoomButton.textContent = "Zoom In";
+                zoomButton.addEventListener("click", () =>
+                  zoomIn(landmark.lat, landmark.lng)
+                );
+                popupContent.appendChild(title);
+                popupContent.appendChild(zoomButton);
+
+                const marker = L.marker([landmark.lat, landmark.lng], {
+                  icon: landmarkIcon,
+                }).addTo(map);
+                marker.bindPopup(popupContent);
+                this.landmarkMarkers.push(marker); // Store the marker
+              });
+              this.areLandmarksDisplayed = true; // Update the display state
+            } else {
+              console.error("No historical landmarks found.");
+            }
+          },
+        });
+      });
+    }
   }
 }
 
@@ -319,7 +384,7 @@ class MapHandler {
       states: [
         {
           stateName: "show-standard",
-          icon: "fa-map",
+          icon: '<img src="map.gif" width="20" height="20">',
           title: "Show Standard Map",
           onClick: function (btn, map) {
             map.removeLayer(this.satelliteLayer);
@@ -329,7 +394,7 @@ class MapHandler {
         },
         {
           stateName: "show-satellite",
-          icon: "fa-globe",
+          icon: '<img src="earth.gif" width="20" height="20">',
           title: "Show Satellite Map",
           onClick: function (btn, map) {
             map.removeLayer(this.standardLayer);
@@ -343,40 +408,58 @@ class MapHandler {
   }
 
   addLocationButton() {
-    L.easyButton(
-      "fa-crosshairs",
-      function (btn, map) {
-        if (this.userLocation) {
-          this.map.flyTo(this.userLocation, 18);
-        } else {
-          console.log("User location is not available");
-        }
-      }.bind(this),
-      "Show Current Location"
-    ).addTo(this.map);
+    L.easyButton({
+      states: [
+        {
+          stateName: "show-location",
+          icon: '<img src="located.gif" width="20" height="20">', // Use your location image
+          title: "Show Current Location",
+          onClick: (btn, map) => {
+            if (this.userLocation) {
+              this.map.flyTo(this.userLocation, 18);
+            } else {
+              console.log("User location is not available");
+            }
+          },
+        },
+      ],
+    }).addTo(this.map);
   }
 
   addWeatherButton() {
-    L.easyButton(
-      "fa-cloud",
-      function (btn, map) {
-        this.weatherAPI.fetchWeatherForCentralLocation(this.map);
-      }.bind(this),
-      "Toggle Weather"
-    ).addTo(this.map);
+    L.easyButton({
+      states: [
+        {
+          stateName: "show-weather",
+          icon: '<img src="weather.gif" width="20" height="20">',
+          title: "Toggle Weather",
+          onClick: (btn, map) => {
+            this.weatherAPI.fetchWeatherForCentralLocation(
+              this.map,
+              this.locationCache
+            );
+          },
+        },
+      ],
+    }).addTo(this.map);
   }
 
   addWikipediaButton() {
-    L.easyButton(
-      "fa-wikipedia-w",
-      function (btn, map) {
-        this.wikipediaAPI.fetchWikipediaForCentralLocation(
-          this.map,
-          this.locationCache
-        );
-      }.bind(this),
-      "Toggle Wikipedia"
-    ).addTo(this.map);
+    L.easyButton({
+      states: [
+        {
+          stateName: "show-wikipedia",
+          icon: '<img src="wiki.gif" width="20" height="20">', // Use your Wikipedia image
+          title: "Toggle Wikipedia",
+          onClick: (btn, map) => {
+            this.wikipediaAPI.fetchWikipediaForCentralLocation(
+              this.map,
+              this.locationCache
+            );
+          },
+        },
+      ],
+    }).addTo(this.map);
   }
 
   addLandmarkButton() {
@@ -384,20 +467,21 @@ class MapHandler {
       states: [
         {
           stateName: "show-landmarks",
-          icon: '<i class="fa fa-landmark"></i>', // For Landmarks
+          icon: '<img src="castle.gif" width="20" height="20">', // Use your image
           title: "Toggle Historical Landmarks",
-          onClick: async function (btn, map) {
-            const center = map.getCenter();
-            const lat = center.lat;
-            const lng = center.lng;
-            try {
-              const countryCode =
-                await this.geoNamesAPI.getCountryCodeFromOpenCage(lat, lng);
-              this.geoNamesAPI.fetchHistoricalLandmarks(countryCode, map);
-            } catch (error) {
-              console.error("Failed to get country code: ", error);
+          onClick: (btn, map) => {
+            if (!this.geoNamesAPI.areLandmarksDisplayed) {
+              this.geoNamesAPI.fetchHistoricalLandmarks(map); // Pass the map object here
+            } else {
+              // Clear existing landmarks if displayed
+              this.geoNamesAPI.landmarkMarkers.forEach((marker) => {
+                map.removeLayer(marker);
+              });
+              this.geoNamesAPI.landmarkMarkers = [];
             }
-          }.bind(this),
+            this.geoNamesAPI.areLandmarksDisplayed =
+              !this.geoNamesAPI.areLandmarksDisplayed;
+          },
         },
       ],
     }).addTo(this.map);
@@ -441,6 +525,12 @@ document.addEventListener("DOMContentLoaded", function () {
   // Existing DOM event listeners and other logic can now use mapHandler, weatherAPI, and wikipediaAPI
   const searchButton = document.getElementById("search-button");
   const locationSearch = document.getElementById("location-search");
+  const airplaneIcon = L.divIcon({
+    className: "custom-marker",
+    html: '<i class="fas fa-plane"></i>', // Use the FontAwesome airplane icon here
+    iconSize: [24, 24], // Adjust the size as needed
+    iconAnchor: [12, 12], // Center the icon
+  });
 
   searchButton.addEventListener("click", function () {
     const query = locationSearch.value.trim();
