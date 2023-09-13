@@ -82,57 +82,34 @@ class WikipediaAPI extends APIHandler {
     this.locationCache = {};
   }
 
-  fetchWikipediaForCentralLocation(map, userAction = null) {
+  fetchWikipediaForCentralLocation(map) {
     console.log("fetchWikipediaForCentralLocation called");
     const center = map.getCenter();
     const lat = center.lat.toFixed(4);
     const lon = center.lng.toFixed(4);
-    const zoomLevel = map.getZoom();
 
-    let radius = 10000; // Default radius for city-level information
-
+    console.log("Sending lat:", lat, " lon:", lon);
     this.makeAjaxCall(
-      `https://en.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lon}&gsradius=${radius}&gslimit=1&format=json&origin=*`,
+      "./php/fetch_wikipedia.php", // Your PHP file path
       "GET",
       "json",
-      {},
+      { lat: lat, lon: lon }, // Pass parameters to PHP
       (result) => {
+        console.log(result);
         if (
-          result.query &&
-          result.query.geosearch &&
-          result.query.geosearch.length > 0
+          result.geonames &&
+          result.geonames.geonames &&
+          result.geonames.geonames.length > 0
         ) {
-          const pageId = result.query.geosearch[0].pageid;
-          this.fetchWikipediaArticle(pageId);
+          const summary = result.geonames.geonames[0].summary;
+          $("#wikipedia-summary").html(summary);
+          $("#wikipedia-modal").modal("show");
         } else {
-          console.error("No geosearch data found.");
+          console.error("No geonames data found.");
         }
       },
       (error) => {
         console.error("Error fetching Wikipedia geosearch data: ", error);
-      }
-    );
-  }
-
-  fetchWikipediaArticle(pageId) {
-    this.makeAjaxCall(
-      `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exintro&explaintext&format=json&pageids=${pageId}&origin=*`,
-      "GET",
-      "json",
-      {},
-      (result) => {
-        if (result.query && result.query.pages && result.query.pages[pageId]) {
-          const article = result.query.pages[pageId];
-          const formattedText = `<h3>${article.title}</h3><p>${article.extract}</p>`;
-          $("#wikipedia-title").html(article.title);
-          $("#wikipedia-summary").html(formattedText);
-          $("#wikipedia-modal").modal("show");
-        } else {
-          console.error("No Wikipedia article found.");
-        }
-      },
-      (error) => {
-        console.error("Error fetching Wikipedia article: ", error);
       }
     );
   }
@@ -177,7 +154,7 @@ class GeoNamesAPI extends APIHandler {
         url: "./php/fetch_geonames.php",
         type: "GET",
         dataType: "json",
-        data: { featureCode: "AIRP", maxRows: 50, bbox: bbox },
+        data: { featureCode: "AIRP", maxRows: 200, bbox: bbox },
         success: (data) => {
           // Remove any existing airport markers
           this.airportMarkers.forEach((marker) => {
@@ -279,7 +256,7 @@ class GeoNamesAPI extends APIHandler {
     } else {
       const featureCode = "CH"; // Feature code for historical landmarks
       const iconUrl = "./castle.png"; // Icon URL for historical landmarks
-      const maxRows = 50; // Limit to 50 landmarks
+      const maxRows = 200; // Limit to 50 landmarks
       const bounds = map.getBounds();
       const southWest = bounds.getSouthWest();
       const northEast = bounds.getNorthEast();

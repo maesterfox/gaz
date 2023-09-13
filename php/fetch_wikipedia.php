@@ -1,36 +1,30 @@
-<!-- fetch_wikipedia.php -->
-
-
 <?php
+// Your GeoNames username
+$username = "mrfox815";
 
-ini_set('display_errors', 'On');
-error_reporting(E_ALL);
+// Validate latitude and longitude from the GET request
+$lat = filter_input(INPUT_GET, 'lat', FILTER_VALIDATE_FLOAT);
+$lon = filter_input(INPUT_GET, 'lon', FILTER_VALIDATE_FLOAT);
 
-$executionStartTime = microtime(true);
+if ($lat === false || $lon === false) {
+    echo json_encode(['error' => 'Invalid latitude or longitude']);
+    exit;
+}
 
-$q = urlencode($_REQUEST['q']);
-$maxRows = urlencode($_REQUEST['maxRows']);
+// Fetch place name data using findNearbyPlaceName API
+$placeNameUrl = "http://api.geonames.org/findNearbyPlaceNameJSON?lat=$lat&lng=$lon&username=$username";
 
-$url = 'http://api.geonames.org/wikipediaSearchJSON?q=' . $q . '&maxRows=' . $maxRows . '&lang=en&username=mrfox815';
+// Error handling for file_get_contents
+$placeNameData = @file_get_contents($placeNameUrl);
+if ($placeNameData === false) {
+    echo json_encode(['error' => 'Failed to fetch place name data']);
+    exit;
+}
 
+// Decode and prepare the response
+$response = [
+    'geonames' => json_decode($placeNameData, true)
+];
 
-$ch = curl_init();
-curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch, CURLOPT_URL, $url);
-
-$result = curl_exec($ch);
-
-curl_close($ch);
-
-$decode = json_decode($result, true);
-
-$output['status']['code'] = "200";
-$output['status']['name'] = "ok";
-$output['status']['description'] = "success";
-$output['status']['returnedIn'] = intval((microtime(true) - $executionStartTime) * 1000) . " ms";
-$output['geonames'] = $decode['geonames'];
-
-header('Content-Type: application/json; charset=UTF-8');
-
-echo json_encode($output);
+// Output the JSON response
+echo json_encode($response);
