@@ -34,7 +34,8 @@ class WeatherAPI extends APIHandler {
           const fahrenheitTemp = ((celsiusTemp * 9) / 5 + 32).toFixed(2);
 
           $("#weather1").html(
-            `<h3>${weatherInfo.name}, ${weatherInfo.sys.country}</h3>`
+            `<img src="weather.gif" width="150" height="150">
+            <h3>${weatherInfo.name}, ${weatherInfo.sys.country}</h3>`
           );
           $("#weather2").html(
             `<p>Temperature: ${celsiusTemp}°C / ${fahrenheitTemp}°F</p>`
@@ -82,11 +83,13 @@ class WikipediaAPI extends APIHandler {
     this.locationCache = {};
   }
 
-  fetchWikipediaForCentralLocation(map) {
+  fetchWikipediaForCentralLocation(map, lat = null, lon = null) {
     console.log("fetchWikipediaForCentralLocation called");
-    const center = map.getCenter();
-    const lat = center.lat.toFixed(4);
-    const lon = center.lng.toFixed(4);
+    if (!lat || !lon) {
+      const center = map.getCenter();
+      lat = center.lat.toFixed(4);
+      lon = center.lng.toFixed(4);
+    }
 
     console.log("Sending lat:", lat, " lon:", lon);
     this.makeAjaxCall(
@@ -97,19 +100,33 @@ class WikipediaAPI extends APIHandler {
       (result) => {
         console.log(result);
         if (
-          result.geonames &&
-          result.geonames.geonames &&
-          result.geonames.geonames.length > 0
+          result.placeInfo &&
+          result.placeInfo.geonames &&
+          result.placeInfo.geonames.length > 0 &&
+          result.wikipediaInfo &&
+          result.wikipediaInfo.geonames &&
+          result.wikipediaInfo.geonames.length > 0
         ) {
-          const summary = result.geonames.geonames[0].summary;
-          $("#wikipedia-summary").html(summary);
+          const placeName = result.placeInfo.geonames[0].adminName1;
+          const countryName = result.placeInfo.geonames[0].countryName;
+          const title = result.wikipediaInfo.geonames[0].title;
+          const wikipediaSummary = result.wikipediaInfo.geonames[0].summary;
+
+          const infoHtml = `
+            <div>
+              <img src="lost.gif" width="150" height="150">
+              <h2>${title}</h2>
+              <h3>${placeName}</h3>
+              <h4>${countryName}</h4>
+              <p>${wikipediaSummary}</p>
+            </div>
+            `;
+
+          $("#wikipedia-summary").html(infoHtml);
           $("#wikipedia-modal").modal("show");
         } else {
           console.error("No geonames data found.");
         }
-      },
-      (error) => {
-        console.error("Error fetching Wikipedia geosearch data: ", error);
       }
     );
   }
@@ -245,7 +262,7 @@ class GeoNamesAPI extends APIHandler {
   }
 
   // Inside the GeoNamesAPI class
-  fetchHistoricalLandmarks(map) {
+  fetchHistoricalLandmarks(map, wikipediaAPIInstance) {
     // If landmarks are already displayed, remove them
     if (this.areLandmarksDisplayed) {
       this.landmarkMarkers.forEach((marker) => {
@@ -254,7 +271,7 @@ class GeoNamesAPI extends APIHandler {
       this.landmarkMarkers = [];
       this.areLandmarksDisplayed = false;
     } else {
-      const featureCode = "CH"; // Feature code for historical landmarks
+      const featureCode = "CSTL"; // Feature code for historical landmarks
       const iconUrl = "./castle.png"; // Icon URL for historical landmarks
       const maxRows = 200; // Limit to 50 landmarks
       const bounds = map.getBounds();
@@ -288,18 +305,36 @@ class GeoNamesAPI extends APIHandler {
           dataType: "json",
           data: { featureCode: featureCode, maxRows: maxRows, bbox: bbox },
           success: (result) => {
+            console.log(result);
             if (result.geonames && result.geonames.length > 0) {
               const landmarks = result.geonames;
               landmarks.forEach((landmark) => {
                 const popupContent = document.createElement("div");
                 const title = document.createElement("h3");
                 title.textContent = landmark.name;
+
+                // Create a button to fetch Wikipedia data
+                const triggerWikipediaButton = document.createElement("button");
+                triggerWikipediaButton.textContent = "Wikipedia";
+                triggerWikipediaButton.addEventListener("click", () => {
+                  map.panTo([landmark.lat, landmark.lng]); // Center the map to the landmark
+                  wikipediaAPIInstance.fetchWikipediaForCentralLocation(
+                    map,
+                    landmark.lat,
+                    landmark.lng
+                  );
+                });
+
+                // Create Zoom button
                 const zoomButton = document.createElement("button");
                 zoomButton.textContent = "Zoom In";
                 zoomButton.addEventListener("click", () =>
-                  zoomIn(landmark.lat, landmark.lng)
+                  map.setView([landmark.lat, landmark.lng], 17)
                 );
+
+                // Append buttons to popup content
                 popupContent.appendChild(title);
+                popupContent.appendChild(triggerWikipediaButton);
                 popupContent.appendChild(zoomButton);
 
                 const marker = L.marker([landmark.lat, landmark.lng], {
@@ -353,7 +388,7 @@ class MapHandler {
   }
 
   locateUser() {
-    this.map.locate({ setView: true, maxZoom: 15 });
+    this.map.locate({ setView: true, maxZoom: 3 });
   }
 
   addLayerToggle() {
@@ -448,7 +483,7 @@ class MapHandler {
           title: "Toggle Historical Landmarks",
           onClick: (btn, map) => {
             if (!this.geoNamesAPI.areLandmarksDisplayed) {
-              this.geoNamesAPI.fetchHistoricalLandmarks(map); // Pass the map object here
+              this.geoNamesAPI.fetchHistoricalLandmarks(map, this.wikipediaAPI);
             } else {
               // Clear existing landmarks if displayed
               this.geoNamesAPI.landmarkMarkers.forEach((marker) => {
@@ -521,7 +556,7 @@ document.addEventListener("DOMContentLoaded", function () {
           if (data.results && data.results.length > 0) {
             const cityInfo = data.results[0];
             const latlng = [cityInfo.geometry.lat, cityInfo.geometry.lng];
-            mapHandler.map.flyTo(latlng, 15);
+            mapHandler.map.flyTo(latlng, 10);
           } else {
             console.log("No results found");
           }

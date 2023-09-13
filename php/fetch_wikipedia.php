@@ -13,17 +13,21 @@ if ($lat === false || $lon === false) {
 
 // Fetch place name data using findNearbyPlaceName API
 $placeNameUrl = "http://api.geonames.org/findNearbyPlaceNameJSON?lat=$lat&lng=$lon&username=$username";
+$wikipediaUrl = "http://api.geonames.org/findNearbyWikipediaJSON?lat=$lat&lng=$lon&username=$username";
 
 // Error handling for file_get_contents
 $placeNameData = @file_get_contents($placeNameUrl);
-if ($placeNameData === false) {
-    echo json_encode(['error' => 'Failed to fetch place name data']);
+$wikipediaData = @file_get_contents($wikipediaUrl);
+
+if ($placeNameData === false || $wikipediaData === false) {
+    echo json_encode(['error' => 'Failed to fetch data']);
     exit;
 }
 
 // Decode and prepare the response
 $response = [
-    'geonames' => json_decode($placeNameData, true)
+    'placeInfo' => json_decode($placeNameData, true),
+    'wikipediaInfo' => json_decode($wikipediaData, true)
 ];
 
 // Output the JSON response
