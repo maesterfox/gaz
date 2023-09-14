@@ -31,7 +31,7 @@ box-shadow: 2px 2px 5px;
 
 /* Icon styling */
 #weathIcon, #mainWeathIcon {
-box-shadow: 2px 2px 5px;
+box-shadow: 2px 2px 5px white;
 }
 
 /* Table styling for modals */
@@ -82,14 +82,14 @@ text-align: center;
 
 .navbar {
   color: white;
-  background-image: radial-gradient( circle farthest-corner at 85.4% 50.8%,  rgba(14,72,222,1) 0%, rgba(3,22,65,1) 74.2% );
+  background-image: radial-gradient( circle farthest-corner at 85.4% 50.8%,  rgb(22, 33, 61) 0%, rgba(3,22,65,1) 74.2% );
 }
 
 #zoom-display {
   margin-top: 0;
   /* z-index: 10000; */
   padding: 5px;
-  border: 1px solid #ccc;
+  border: 1px solid #000000;
   border-radius: 4px;
   left: 50%;
   transform: translateX(-15%);
@@ -113,7 +113,7 @@ text-align: center;
 #search-button:hover {
    
   color: #fff; 
-  box-shadow: 0px 0px 5px rgba(255, 255, 255, 0.7); 
+  box-shadow: 0px 0px 15px rgb(0, 0, 0); 
   text-shadow: 0px 0px 2px whitesmoke; 
 }
 

@@ -32,37 +32,23 @@ class WeatherAPI extends APIHandler {
           const kelvinTemp = weatherInfo.main.temp;
           const celsiusTemp = (kelvinTemp - 273.15).toFixed(2);
           const fahrenheitTemp = ((celsiusTemp * 9) / 5 + 32).toFixed(2);
+          const iconCode = weatherInfo.weather[0].icon; // Assuming the icon code is in the first element of the 'weather' array
+          const iconUrl = `http://openweathermap.org/img/wn/${iconCode}.png`;
 
           $("#weather1").html(
-            `<img src="weather.gif" width="150" height="150">
+            `<img src="${iconUrl}" width="150" height="150">
             <h3>${weatherInfo.name}, ${weatherInfo.sys.country}</h3>`
           );
           $("#weather2").html(
             `<p>Temperature: ${celsiusTemp}°C / ${fahrenheitTemp}°F</p>`
           );
           $("#weather3").html(`<p>Humidity: ${weatherInfo.main.humidity}%</p>`);
+
           $("#weather4").html(
-            `<p>Visibility: ${weatherInfo.visibility} meters</p>`
+            `<h4>Current Weather: ${weatherInfo.weather[0].description}</h4>`
           );
-          $("#weather5").html(
-            `<p>Rain: ${
-              weatherInfo.rain
-                ? (weatherInfo.rain["1h"] || 0) + (weatherInfo.rain["3h"] || 0)
-                : "0"
-            } mm</p>`
-          );
-          $("#weather6").html(
-            `<p>Snow: ${
-              weatherInfo.snow
-                ? (weatherInfo.snow["1h"] || 0) + (weatherInfo.snow["3h"] || 0)
-                : "0"
-            } mm</p>`
-          );
-          $("#weather7").html(
-            `<p>Time of Calculation: ${new Date(
-              weatherInfo.dt * 1000
-            ).toLocaleTimeString()}</p>`
-          );
+          $("#weather5").html(`<p>Wind: ${weatherInfo.wind.speed} mph</p>`);
+          $("#weather6").html(`<p>Clouds: ${weatherInfo.clouds.all}</p>`);
 
           weatherModal.modal("show");
         } else {
@@ -136,6 +122,7 @@ class WikipediaAPI extends APIHandler {
 class GeoNamesAPI extends APIHandler {
   constructor() {
     super();
+    this.locationCache = {};
     this.markerClusterGroups = {};
     this.areAirportsDisplayed = false;
     this.airportMarkers = [];
@@ -171,7 +158,7 @@ class GeoNamesAPI extends APIHandler {
         url: "./php/fetch_geonames.php",
         type: "GET",
         dataType: "json",
-        data: { featureCode: "AIRP", maxRows: 200, bbox: bbox },
+        data: { featureCode: "AIRP", maxRows: 50, bbox: bbox },
         success: (data) => {
           // Remove any existing airport markers
           this.airportMarkers.forEach((marker) => {
@@ -272,7 +259,7 @@ class GeoNamesAPI extends APIHandler {
       this.areLandmarksDisplayed = false;
     } else {
       const featureCode = "CSTL"; // Feature code for historical landmarks
-      const iconUrl = "./castle.png"; // Icon URL for historical landmarks
+      const iconUrl = "./img/castle.gif"; // Icon URL for historical landmarks
       const maxRows = 200; // Limit to 50 landmarks
       const bounds = map.getBounds();
       const southWest = bounds.getSouthWest();
@@ -388,22 +375,34 @@ class MapHandler {
   }
 
   locateUser() {
-    this.map.locate({ setView: true, maxZoom: 3 });
+    this.map.locate({ setView: true, maxZoom: 7 });
+  }
+
+  getCountryCode(lat, lng) {
+    return new Promise((resolve, reject) => {
+      $.ajax({
+        url: "./php/fetch_geonames.php", // Replace with your PHP URL
+        type: "GET",
+        dataType: "json",
+        data: { lat: lat, lng: lng },
+        success: function (data) {
+          if (data && data.countryCode) {
+            resolve(data.countryCode);
+          } else {
+            reject("Country code not found");
+          }
+        },
+        error: function (error) {
+          console.error("Error fetching country code: ", error);
+          reject(error);
+        },
+      });
+    });
   }
 
   addLayerToggle() {
     L.easyButton({
       states: [
-        {
-          stateName: "show-standard",
-          icon: '<img src="map.gif" width="20" height="20">',
-          title: "Show Standard Map",
-          onClick: function (btn, map) {
-            map.removeLayer(this.satelliteLayer);
-            map.addLayer(this.standardLayer);
-            btn.state("show-satellite");
-          }.bind(this),
-        },
         {
           stateName: "show-satellite",
           icon: '<img src="earth.gif" width="20" height="20">',
@@ -413,6 +412,16 @@ class MapHandler {
             map.addLayer(this.satelliteLayer);
             btn.state("show-standard");
             fetchCitiesAndAirports;
+          }.bind(this),
+        },
+        {
+          stateName: "show-standard",
+          icon: '<img src="map.gif" width="20" height="20">',
+          title: "Show Standard Map",
+          onClick: function (btn, map) {
+            map.removeLayer(this.satelliteLayer);
+            map.addLayer(this.standardLayer);
+            btn.state("show-satellite");
           }.bind(this),
         },
       ],
@@ -479,7 +488,7 @@ class MapHandler {
       states: [
         {
           stateName: "show-landmarks",
-          icon: '<img src="castle.gif" width="20" height="20">', // Use your image
+          icon: '<img src="castle.png" width="20" height="20">', // Use your image
           title: "Toggle Historical Landmarks",
           onClick: (btn, map) => {
             if (!this.geoNamesAPI.areLandmarksDisplayed) {
@@ -497,28 +506,6 @@ class MapHandler {
         },
       ],
     }).addTo(this.map);
-  }
-
-  getCountryCode(lat, lng) {
-    return new Promise((resolve, reject) => {
-      $.ajax({
-        url: "./php/fetch_geonames.php", // Replace with your PHP URL
-        type: "GET",
-        dataType: "json",
-        data: { lat: lat, lng: lng },
-        success: function (data) {
-          if (data && data.countryCode) {
-            resolve(data.countryCode);
-          } else {
-            reject("Country code not found");
-          }
-        },
-        error: function (error) {
-          console.error("Error fetching country code: ", error);
-          reject(error);
-        },
-      });
-    });
   }
 
   onLocationFound(e) {
@@ -556,7 +543,7 @@ document.addEventListener("DOMContentLoaded", function () {
           if (data.results && data.results.length > 0) {
             const cityInfo = data.results[0];
             const latlng = [cityInfo.geometry.lat, cityInfo.geometry.lng];
-            mapHandler.map.flyTo(latlng, 10);
+            mapHandler.map.flyTo(latlng, 15);
           } else {
             console.log("No results found");
           }
