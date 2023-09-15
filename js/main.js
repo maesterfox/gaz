@@ -128,43 +128,40 @@ class GeoNamesAPI extends APIHandler {
     this.airportMarkers = [];
     this.map = null; // Store the map reference
     this.areLandmarksDisplayed = false; // New state variable for landmarks
-    this.landmarkMarkers = []; // New array to store landmark markers
+    this.landmarkMarkers = [];
+    // New array to store landmark markers
   }
 
+  // In GeoNamesAPI class
+
   fetchCitiesAndAirports(countryCode) {
-    // Get the map bounds
-    const bounds = this.map.getBounds();
-    const southWest = bounds.getSouthWest();
-    const northEast = bounds.getNorthEast();
+    // Get the map center
+    const center = this.map.getCenter();
+    const lat = center.lat;
+    const lng = center.lng;
 
-    // Define bounding box
-    const bbox = {
-      north: northEast.lat,
-      south: southWest.lat,
-      east: northEast.lng,
-      west: southWest.lng,
-    };
-
-    // If airports are already displayed, remove them
+    // Check if airports are currently displayed
     if (this.areAirportsDisplayed) {
+      // Airports are displayed, so remove them from the map
       this.airportMarkers.forEach((marker) => {
         this.map.removeLayer(marker);
       });
-      this.airportMarkers = [];
-      this.areAirportsDisplayed = false;
+      this.airportMarkers = []; // Clear the airport markers
+      this.areAirportsDisplayed = false; // Update the display state to false
     } else {
-      // Fetch and display airports
+      // Airports are not displayed, so fetch and display them
       $.ajax({
         url: "./php/fetch_geonames.php",
         type: "GET",
         dataType: "json",
-        data: { featureCode: "AIRP", maxRows: 50, bbox: bbox },
+        data: {
+          featureCode: "AIRP",
+          maxRows: 50, // Limit to 50 airports
+          lat: lat,
+          lng: lng, // Pass the central location coordinates
+        },
         success: (data) => {
-          // Remove any existing airport markers
-          this.airportMarkers.forEach((marker) => {
-            this.map.removeLayer(marker);
-          });
-          this.airportMarkers = [];
+          console.log(data);
 
           // Create a custom icon for the airplane
           const customIcon = L.icon({
@@ -193,7 +190,7 @@ class GeoNamesAPI extends APIHandler {
       });
     }
   }
-  // In GeoNamesAPI class
+
   addCitiesAndAirportsButton(map) {
     this.map = map;
 
@@ -204,48 +201,22 @@ class GeoNamesAPI extends APIHandler {
           icon: '<img src="plane.gif" width="20" height="20">',
           title: "Toggle Cities and Airports",
           onClick: (btn) => {
-            const center = this.map.getCenter();
-            const lat = center.lat;
-            const lng = center.lng;
-            this.getCountryCodeFromOpenCage(lat, lng)
-              .then((countryCode) => {
-                this.fetchCitiesAndAirports(countryCode);
-              })
-              .catch((error) => {
-                console.error("Failed to get country code: ", error);
-              });
+            this.fetchCitiesAndAirports();
           },
         },
       ],
     }).addTo(map);
   }
 
-  getCountryCodeFromOpenCage(lat, lng) {
-    return new Promise((resolve, reject) => {
-      $.ajax({
-        url: "./php/fetch_ocairports.php",
-        type: "GET",
-        dataType: "json",
-        data: { lat: lat, lng: lng },
-        success: function (data) {
-          // Check if data contains the countryCode field
-          if (
-            data &&
-            data.results &&
-            data.results.length > 0 &&
-            data.results[0].components.country_code
-          ) {
-            resolve(data.results[0].components.country_code);
-          } else {
-            reject("Country code not found");
-          }
-        },
-        error: function (error) {
-          console.error("Error fetching country code: ", error);
-          reject(error);
-        },
-      });
+  clearLandmarks(map) {
+    this.landmarkMarkers.forEach((marker) => {
+      map.removeLayer(marker);
     });
+    this.landmarkMarkers = [];
+  }
+
+  toggleLandmarkDisplay() {
+    this.areLandmarksDisplayed = !this.areLandmarksDisplayed;
   }
 
   // Inside the GeoNamesAPI class
@@ -260,7 +231,7 @@ class GeoNamesAPI extends APIHandler {
     } else {
       const featureCode = "CSTL"; // Feature code for historical landmarks
       const iconUrl = "./img/castle.gif"; // Icon URL for historical landmarks
-      const maxRows = 200; // Limit to 50 landmarks
+      const maxRows = 50; // Limit to 50 landmarks
       const bounds = map.getBounds();
       const southWest = bounds.getSouthWest();
       const northEast = bounds.getNorthEast();
@@ -277,65 +248,56 @@ class GeoNamesAPI extends APIHandler {
         west: southWest.lng,
       };
 
-      const center = map.getCenter();
-      const lat = center.lat;
-      const lng = center.lng;
+      // Fetch historical landmarks using GeoNames API
+      $.ajax({
+        url: "./php/fetch_geonames.php",
+        type: "GET",
+        dataType: "json",
+        data: { featureCode: featureCode, maxRows: maxRows, bbox: bbox },
+        success: (result) => {
+          console.log(result);
+          if (result.geonames && result.geonames.length > 0) {
+            const landmarks = result.geonames;
+            landmarks.forEach((landmark) => {
+              const popupContent = document.createElement("div");
+              const title = document.createElement("h3");
+              title.textContent = landmark.name;
 
-      this.getCountryCodeFromOpenCage(lat, lng).then((countryCode) => {
-        function zoomIn(lat, lng) {
-          map.setView([lat, lng], 18);
-        }
-
-        $.ajax({
-          url: "./php/fetch_geonames.php",
-          type: "GET",
-          dataType: "json",
-          data: { featureCode: featureCode, maxRows: maxRows, bbox: bbox },
-          success: (result) => {
-            console.log(result);
-            if (result.geonames && result.geonames.length > 0) {
-              const landmarks = result.geonames;
-              landmarks.forEach((landmark) => {
-                const popupContent = document.createElement("div");
-                const title = document.createElement("h3");
-                title.textContent = landmark.name;
-
-                // Create a button to fetch Wikipedia data
-                const triggerWikipediaButton = document.createElement("button");
-                triggerWikipediaButton.textContent = "Wikipedia";
-                triggerWikipediaButton.addEventListener("click", () => {
-                  map.panTo([landmark.lat, landmark.lng]); // Center the map to the landmark
-                  wikipediaAPIInstance.fetchWikipediaForCentralLocation(
-                    map,
-                    landmark.lat,
-                    landmark.lng
-                  );
-                });
-
-                // Create Zoom button
-                const zoomButton = document.createElement("button");
-                zoomButton.textContent = "Zoom In";
-                zoomButton.addEventListener("click", () =>
-                  map.setView([landmark.lat, landmark.lng], 17)
+              // Create a button to fetch Wikipedia data
+              const triggerWikipediaButton = document.createElement("button");
+              triggerWikipediaButton.textContent = "Wikipedia";
+              triggerWikipediaButton.addEventListener("click", () => {
+                map.panTo([landmark.lat, landmark.lng]); // Center the map to the landmark
+                wikipediaAPIInstance.fetchWikipediaForCentralLocation(
+                  map,
+                  landmark.lat,
+                  landmark.lng
                 );
-
-                // Append buttons to popup content
-                popupContent.appendChild(title);
-                popupContent.appendChild(triggerWikipediaButton);
-                popupContent.appendChild(zoomButton);
-
-                const marker = L.marker([landmark.lat, landmark.lng], {
-                  icon: landmarkIcon,
-                }).addTo(map);
-                marker.bindPopup(popupContent);
-                this.landmarkMarkers.push(marker); // Store the marker
               });
-              this.areLandmarksDisplayed = true; // Update the display state
-            } else {
-              console.error("No historical landmarks found.");
-            }
-          },
-        });
+
+              // Create Zoom button
+              const zoomButton = document.createElement("button");
+              zoomButton.textContent = "Zoom In";
+              zoomButton.addEventListener("click", () =>
+                map.setView([landmark.lat, landmark.lng], 17)
+              );
+
+              // Append buttons to popup content
+              popupContent.appendChild(title);
+              popupContent.appendChild(triggerWikipediaButton);
+              popupContent.appendChild(zoomButton);
+
+              const marker = L.marker([landmark.lat, landmark.lng], {
+                icon: landmarkIcon,
+              }).addTo(map);
+              marker.bindPopup(popupContent);
+              this.landmarkMarkers.push(marker); // Store the marker
+            });
+            this.areLandmarksDisplayed = true; // Update the display state
+          } else {
+            console.error("No historical landmarks found.");
+          }
+        },
       });
     }
   }
@@ -484,27 +446,37 @@ class MapHandler {
   }
 
   addLandmarkButton() {
+    const generateButtonConfig = (
+      stateName,
+      iconSrc,
+      title,
+      onClickHandler
+    ) => ({
+      stateName,
+      icon: `<img src="${iconSrc}" width="20" height="20">`,
+      title,
+      onClick: onClickHandler,
+    });
+
+    const landmarkButtonConfig = generateButtonConfig(
+      "show-landmarks",
+      "castle.png",
+      "Toggle Historical Landmarks",
+      async (btn, map) => {
+        if (!this.geoNamesAPI.areLandmarksDisplayed) {
+          await this.geoNamesAPI.fetchHistoricalLandmarks(
+            map,
+            this.wikipediaAPI
+          );
+        } else {
+          this.geoNamesAPI.clearLandmarks(map);
+        }
+        this.geoNamesAPI.toggleLandmarkDisplay();
+      }
+    );
+
     L.easyButton({
-      states: [
-        {
-          stateName: "show-landmarks",
-          icon: '<img src="castle.png" width="20" height="20">', // Use your image
-          title: "Toggle Historical Landmarks",
-          onClick: (btn, map) => {
-            if (!this.geoNamesAPI.areLandmarksDisplayed) {
-              this.geoNamesAPI.fetchHistoricalLandmarks(map, this.wikipediaAPI);
-            } else {
-              // Clear existing landmarks if displayed
-              this.geoNamesAPI.landmarkMarkers.forEach((marker) => {
-                map.removeLayer(marker);
-              });
-              this.geoNamesAPI.landmarkMarkers = [];
-            }
-            this.geoNamesAPI.areLandmarksDisplayed =
-              !this.geoNamesAPI.areLandmarksDisplayed;
-          },
-        },
-      ],
+      states: [landmarkButtonConfig],
     }).addTo(this.map);
   }
 
@@ -524,12 +496,6 @@ document.addEventListener("DOMContentLoaded", function () {
   // Existing DOM event listeners and other logic can now use mapHandler, weatherAPI, and wikipediaAPI
   const searchButton = document.getElementById("search-button");
   const locationSearch = document.getElementById("location-search");
-  const airplaneIcon = L.divIcon({
-    className: "custom-marker",
-    html: '<i class="fas fa-plane"></i>', // Use the FontAwesome airplane icon here
-    iconSize: [24, 24], // Adjust the size as needed
-    iconAnchor: [12, 12], // Center the icon
-  });
 
   searchButton.addEventListener("click", function () {
     const query = locationSearch.value.trim();

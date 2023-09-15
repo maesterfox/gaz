@@ -70,6 +70,7 @@ div.modal-dialog.modal-dialog-centered {
 justify-content: center;
 }
 
+
 div.modal-content {
 align-items: center;
 text-align: center;
@@ -117,6 +118,28 @@ text-align: center;
   text-shadow: 0px 0px 2px whitesmoke; 
 }
 
+/* Custom class for navy blue background */
+.custom-navy-bg {
+  /* border: solid 1px white; */
+  box-shadow: 0px 0px 15px white;
+  text-shadow: 0px 0px 5px white;
+  background-color: #001f3f; /* Adjust this color code to match your desired navy blue shade */
+  /* You can also specify other styling properties like text color, padding, etc. */
+  color: rgb(255, 255, 255); /* Text color is set to white for contrast */
+  padding: 10px; /* Example padding */
+  border-radius: 8%;
+}
+
+.landmark-label {
+  font-size: 28px; /* Adjust the font size to your preference */
+}
+.close {
+  color: white;
+}
+
+.close:hover {
+  color: aqua;
+}
 
 @media (max-width: 768px) {
   /* Adjust the max-width and height as needed for your design */
