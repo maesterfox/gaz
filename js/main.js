@@ -129,7 +129,8 @@ class GeoNamesAPI extends APIHandler {
     this.map = null; // Store the map reference
     this.areLandmarksDisplayed = false; // New state variable for landmarks
     this.landmarkMarkers = [];
-    // New array to store landmark markers
+    this.areAsylumsDisplayed = false; // New state variable for asylums
+    this.asylumMarkers = []; // New array to store asylum markers
   }
 
   // In GeoNamesAPI class
@@ -219,8 +220,20 @@ class GeoNamesAPI extends APIHandler {
     this.areLandmarksDisplayed = !this.areLandmarksDisplayed;
   }
 
+  toggleAsylumDisplay() {
+    this.areAsylumsDisplayed = !this.areAsylumsDisplayed;
+  }
+  clearAsylums(map) {
+    this.asylumMarkers.forEach((marker) => {
+      map.removeLayer(marker);
+    });
+    this.asylumMarkers = [];
+  }
+
   // Inside the GeoNamesAPI class
-  fetchHistoricalLandmarks(map, wikipediaAPIInstance) {
+  fetchHistoricalLandmarks(map, wikipediaAPI) {
+    console.log(map, wikipediaAPI);
+
     // If landmarks are already displayed, remove them
     if (this.areLandmarksDisplayed) {
       this.landmarkMarkers.forEach((marker) => {
@@ -268,7 +281,7 @@ class GeoNamesAPI extends APIHandler {
               triggerWikipediaButton.textContent = "Wikipedia";
               triggerWikipediaButton.addEventListener("click", () => {
                 map.panTo([landmark.lat, landmark.lng]); // Center the map to the landmark
-                wikipediaAPIInstance.fetchWikipediaForCentralLocation(
+                wikipediaAPI.fetchWikipediaForCentralLocation(
                   map,
                   landmark.lat,
                   landmark.lng
@@ -301,8 +314,89 @@ class GeoNamesAPI extends APIHandler {
       });
     }
   }
-}
 
+  // Inside the GeoNamesAPI class
+  async fetchInsaneAsylums(map, wikipediaAPI) {
+    // This is actually Universities and will be updated
+    if (this.areAsylumsDisplayed) {
+      this.asylumMarkers.forEach((marker) => {
+        map.removeLayer(marker);
+      });
+      this.asylumMarkers = [];
+      this.areAsylumsDisplayed = false;
+    } else {
+      const featureCode = "UNIV"; // Feature code for insane asylums
+      const iconUrl = "./img/uni.gif"; // Icon URL for insane asylums
+      const maxRows = 100; // Limit to 50 asylums
+      const bounds = map.getBounds();
+      const southWest = bounds.getSouthWest();
+      const northEast = bounds.getNorthEast();
+      const asylumIcon = L.icon({
+        iconUrl: iconUrl,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+      });
+
+      const bbox = {
+        north: northEast.lat,
+        south: southWest.lat,
+        east: northEast.lng,
+        west: southWest.lng,
+      };
+
+      $.ajax({
+        url: "./php/fetch_geonames.php",
+        type: "GET",
+        dataType: "json",
+        data: { featureCode: featureCode, maxRows: maxRows, bbox: bbox },
+        success: (result) => {
+          console.log(result);
+          if (result.geonames && result.geonames.length > 0) {
+            const asylums = result.geonames;
+            asylums.forEach((asylum) => {
+              const popupContent = document.createElement("div");
+              const title = document.createElement("h3");
+              title.textContent = asylum.name;
+
+              // Create a button to fetch Wikipedia data
+              const triggerWikipediaButton = document.createElement("button");
+              triggerWikipediaButton.textContent = "Wikipedia";
+              triggerWikipediaButton.addEventListener("click", () => {
+                map.panTo([asylum.lat, asylum.lng]); // Center the map to the asylum
+                wikipediaAPI.fetchWikipediaForCentralLocation(
+                  map,
+                  asylum.lat,
+                  asylum.lng
+                );
+              });
+
+              // Create Zoom button
+              const zoomButton = document.createElement("button");
+              zoomButton.textContent = "Zoom In";
+              zoomButton.addEventListener("click", () =>
+                map.setView([asylum.lat, asylum.lng], 17)
+              );
+
+              // Append buttons to popup content
+              popupContent.appendChild(title);
+              popupContent.appendChild(triggerWikipediaButton);
+              popupContent.appendChild(zoomButton);
+
+              const marker = L.marker([asylum.lat, asylum.lng], {
+                icon: asylumIcon,
+              }).addTo(map);
+              marker.bindPopup(popupContent);
+              this.asylumMarkers.push(marker); // Store the marker
+            });
+            this.areAsylumsDisplayed = true; // Update the display state
+          } else {
+            console.error("No insane asylums found.");
+          }
+        },
+      });
+    }
+  }
+}
 // MapHandler Class
 class MapHandler {
   constructor(mapId) {
@@ -320,7 +414,7 @@ class MapHandler {
     );
     this.weatherAPI = new WeatherAPI();
     this.wikipediaAPI = new WikipediaAPI();
-    this.geoNamesAPI = new GeoNamesAPI(); // Create an instance of GeoNamesAPI
+    this.geoNamesAPI = new GeoNamesAPI();
     this.locationCache = {};
     this.init();
   }
@@ -328,11 +422,13 @@ class MapHandler {
   init() {
     this.locateUser();
     this.addLayerToggle();
+    this.addLayersControlButton(); // New: Add layers control button
     this.addLocationButton();
     this.addWeatherButton();
-    this.geoNamesAPI.addCitiesAndAirportsButton(this.map); // Call the method through the instance
+    this.geoNamesAPI.addCitiesAndAirportsButton(this.map);
     this.addWikipediaButton();
     this.addLandmarkButton();
+    this.addAsylumButton(); // Add this line to initialize the asylum button
     this.map.on("locationfound", this.onLocationFound.bind(this));
   }
 
@@ -385,6 +481,48 @@ class MapHandler {
             map.addLayer(this.standardLayer);
             btn.state("show-satellite");
           }.bind(this),
+        },
+      ],
+    }).addTo(this.map);
+  }
+
+  addLayersControlButton() {
+    // Define the base layers
+    const baseLayers = {
+      Standard: this.standardLayer,
+      Satellite: this.satelliteLayer,
+    };
+
+    // Create a layers control and add it to the map
+    const layersControl = L.control.layers(baseLayers, null, {
+      position: "topright",
+    });
+    layersControl.addTo(this.map);
+
+    // Create a custom button for toggling the layers control, a work in progress
+    L.easyButton({
+      id: "layer-toggle-button",
+      position: "topright",
+      type: "Layers",
+      leafletClasses: true,
+      states: [
+        {
+          stateName: "show-layers",
+          icon: '<img src="img/slayers.png" width="20" height="20">', // Replace with your layers icon
+          title: "Show Layers",
+          onClick: function (btn, map) {
+            layersControl.addTo(map); // Add the layers control to the map
+            btn.state("hide-layers"); // Update the button state
+          },
+        },
+        {
+          stateName: "hide-layers",
+          icon: '<img src="img/hlayers.png" width="20" height="20">', // Replace with your layers icon
+          title: "Hide Layers",
+          onClick: function (btn, map) {
+            map.removeControl(layersControl); // Remove the layers control from the map
+            btn.state("show-layers"); // Update the button state
+          },
         },
       ],
     }).addTo(this.map);
@@ -446,22 +584,16 @@ class MapHandler {
   }
 
   addLandmarkButton() {
-    const generateButtonConfig = (
+    const generateButtonConfig = (stateName, title, onClickHandler) => ({
       stateName,
-      iconSrc,
-      title,
-      onClickHandler
-    ) => ({
-      stateName,
-      icon: `<img src="${iconSrc}" width="20" height="20">`,
-      title,
+      icon: `<img src="img/castle.gif" width="20" height="20">`,
+      title: "Historical Landmarks",
       onClick: onClickHandler,
     });
 
     const landmarkButtonConfig = generateButtonConfig(
       "show-landmarks",
       "castle.png",
-      "Toggle Historical Landmarks",
       async (btn, map) => {
         if (!this.geoNamesAPI.areLandmarksDisplayed) {
           await this.geoNamesAPI.fetchHistoricalLandmarks(
@@ -477,6 +609,38 @@ class MapHandler {
 
     L.easyButton({
       states: [landmarkButtonConfig],
+    }).addTo(this.map);
+  }
+
+  addAsylumButton() {
+    const generateButtonConfig = (
+      stateName,
+      iconSrc,
+      title,
+      onClickHandler
+    ) => ({
+      stateName,
+      icon: `<img src="${iconSrc}" width="20" height="20">`,
+      title,
+      onClick: onClickHandler,
+    });
+
+    const asylumButtonConfig = generateButtonConfig(
+      "show-asylums",
+      "img/uni.gif",
+      "Toggle Universities",
+      async (btn, map) => {
+        if (!this.geoNamesAPI.areAsylumsDisplayed) {
+          await this.geoNamesAPI.fetchInsaneAsylums(map, this.wikipediaAPI);
+        } else {
+          this.geoNamesAPI.clearAsylums(map);
+        }
+        this.geoNamesAPI.toggleAsylumDisplay();
+      }
+    );
+
+    L.easyButton({
+      states: [asylumButtonConfig],
     }).addTo(this.map);
   }
 
