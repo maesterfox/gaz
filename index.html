@@ -9,7 +9,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
     <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <!-- Downgraded Popper.js for Bootstrap 4 -->
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.css" rel="stylesheet">
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.1/umd/popper.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
@@ -28,16 +30,22 @@
       <img src="logo.png" alt="MapApp Logo" class="navbar-logo">
       <h1 class="navbar-brand"></h1>
       <div id="zoom-display" class="mx-auto">Zoom: 10</div>
-
-
+    
       <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
       </button>
       <div class="collapse navbar-collapse" id="navbarNav">
         <form class="form-inline my-2 my-lg-0 ml-auto">
-          <input class="form-control mr-sm-2" type="search" placeholder="Search" aria-label="Search" id="location-search">
-          <button class="btn btn-outline-primary my-2 my-sm-0" type="button" id="search-button">Search</button>
-        </form>
+  <select class="form-control mr-sm-2" id="continent-select">
+    <option value="" disabled selected>Select Continent</option>
+    <!-- Continent options here -->
+  </select>
+  <select class="form-control mr-sm-2" id="country-select" disabled>
+    <option value="" disabled selected>Select Country</option>
+    <!-- Country options will be populated here -->
+  </select>
+  <button class="btn btn-outline-primary my-2 my-sm-0" type="button" id="search-button">Search</button>
+</form>
       </div>
     </nav>
     
@@ -117,6 +125,7 @@
 
 
 
+<script src="https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.js"></script>
 
 <script type="module" src="./js/main.js"></script>
 

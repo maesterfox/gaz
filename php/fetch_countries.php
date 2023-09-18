@@ -1,10 +1,9 @@
 <?php
-$apiKey = "4fe0f4e6120b4529a33583954b82b56d";
-$query = urlencode($_GET['query']);
-$url = "https://api.opencagedata.com/geocode/v1/json?q=$query&key=$apiKey";
+$continent = $_GET['continent'];
+$apiUrl = "https://restcountries.com/v3.1/region/$continent"; // Replace with your actual API
 
 $ch = curl_init();
-curl_setopt($ch, CURLOPT_URL, $url);
+curl_setopt($ch, CURLOPT_URL, $apiUrl);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
 
 $response = curl_exec($ch);

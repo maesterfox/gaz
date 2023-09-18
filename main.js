@@ -73,8 +73,8 @@ class WikipediaAPI extends APIHandler {
     console.log("fetchWikipediaForCentralLocation called");
     if (!lat || !lon) {
       const center = map.getCenter();
-      lat = center.lat.toFixed(6);
-      lon = center.lng.toFixed(6);
+      lat = center.lat.toFixed(4);
+      lon = center.lng.toFixed(4);
     }
 
     console.log("Sending lat:", lat, " lon:", lon);
@@ -88,47 +88,25 @@ class WikipediaAPI extends APIHandler {
         if (
           result.placeInfo &&
           result.placeInfo.geonames &&
-          result.placeInfo.geonames.length > 0
+          result.placeInfo.geonames.length > 0 &&
+          result.wikipediaInfo &&
+          result.wikipediaInfo.geonames &&
+          result.wikipediaInfo.geonames.length > 0
         ) {
           const placeName = result.placeInfo.geonames[0].adminName1;
           const countryName = result.placeInfo.geonames[0].countryName;
+          const title = result.wikipediaInfo.geonames[0].title;
+          const wikipediaSummary = result.wikipediaInfo.geonames[0].summary;
 
-          let title = "Unknown";
-          let wikipediaSummary = "No information available.";
-
-          if (
-            result.wikipediaInfo &&
-            result.wikipediaInfo.geonames &&
-            result.wikipediaInfo.geonames.length > 0
-          ) {
-            title = result.wikipediaInfo.geonames[0].title;
-            wikipediaSummary = result.wikipediaInfo.geonames[0].summary;
-          }
-
-          let infoHtml = '<div><img src="lost.gif" width="150" height="150">';
-
-          if (title !== "Unknown") {
-            infoHtml += `<h2>${title}</h2>`;
-          }
-
-          if (placeName) {
-            infoHtml += `<h3>${placeName}</h3>`;
-          }
-
-          if (countryName) {
-            infoHtml += `<h4>${countryName}</h4>`;
-          }
-
-          if (wikipediaSummary !== "No information available.") {
-            infoHtml += `<p>${wikipediaSummary}</p>`;
-          }
-
-          if (result.placeInfo.geonames[0].name) {
-            infoHtml += `<p>Village/Town: ${result.placeInfo.geonames[0].name}</p>`;
-          }
-
-          infoHtml += `<p>Coordinates: ${result.placeInfo.geonames[0].lat}, ${result.placeInfo.geonames[0].lng}</p>`;
-          infoHtml += "</div>";
+          const infoHtml = `
+            <div>
+              <img src="lost.gif" width="150" height="150">
+              <h2>${title}</h2>
+              <h3>${placeName}</h3>
+              <h4>${countryName}</h4>
+              <p>${wikipediaSummary}</p>
+            </div>
+            `;
 
           $("#wikipedia-summary").html(infoHtml);
           $("#wikipedia-modal").modal("show");
@@ -151,8 +129,8 @@ class GeoNamesAPI extends APIHandler {
     this.map = null; // Store the map reference
     this.areLandmarksDisplayed = false; // New state variable for landmarks
     this.landmarkMarkers = [];
-    this.areUniversitiesDisplayed = false; // New state variable for universitys
-    this.universityMarkers = []; // New array to store university markers
+    this.areAsylumsDisplayed = false; // New state variable for asylums
+    this.asylumMarkers = []; // New array to store asylum markers
   }
 
   // In GeoNamesAPI class
@@ -242,14 +220,14 @@ class GeoNamesAPI extends APIHandler {
     this.areLandmarksDisplayed = !this.areLandmarksDisplayed;
   }
 
-  toggleUniversityDisplay() {
-    this.areUniversitiesDisplayed = !this.areUniversitiesDisplayed;
+  toggleAsylumDisplay() {
+    this.areAsylumsDisplayed = !this.areAsylumsDisplayed;
   }
-  clearUniversities(map) {
-    this.universityMarkers.forEach((marker) => {
+  clearAsylums(map) {
+    this.asylumMarkers.forEach((marker) => {
       map.removeLayer(marker);
     });
-    this.universityMarkers = [];
+    this.asylumMarkers = [];
   }
 
   // Inside the GeoNamesAPI class
@@ -338,22 +316,22 @@ class GeoNamesAPI extends APIHandler {
   }
 
   // Inside the GeoNamesAPI class
-  async fetchInsaneUniversities(map, wikipediaAPI) {
-    // This is actually Universities and will be updated
-    if (this.areUniversitiesDisplayed) {
-      this.universityMarkers.forEach((marker) => {
+  async fetchInsaneAsylums(map, wikipediaAPI) {
+    // If asylums are already displayed, remove them
+    if (this.areAsylumsDisplayed) {
+      this.asylumMarkers.forEach((marker) => {
         map.removeLayer(marker);
       });
-      this.universityMarkers = [];
-      this.areUniversitiesDisplayed = false;
+      this.asylumMarkers = [];
+      this.areAsylumsDisplayed = false;
     } else {
-      const featureCode = "UNIV"; // Feature code for insane universitys
-      const iconUrl = "./img/uni.gif"; // Icon URL for insane universitys
-      const maxRows = 100; // Limit to 50 universitys
+      const featureCode = "UNIV"; // Feature code for insane asylums
+      const iconUrl = "./img/uni.gif"; // Icon URL for insane asylums
+      const maxRows = 100; // Limit to 50 asylums
       const bounds = map.getBounds();
       const southWest = bounds.getSouthWest();
       const northEast = bounds.getNorthEast();
-      const universityIcon = L.icon({
+      const asylumIcon = L.icon({
         iconUrl: iconUrl,
         iconSize: [32, 32],
         iconAnchor: [16, 16],
@@ -374,21 +352,21 @@ class GeoNamesAPI extends APIHandler {
         success: (result) => {
           console.log(result);
           if (result.geonames && result.geonames.length > 0) {
-            const universitys = result.geonames;
-            universitys.forEach((university) => {
+            const asylums = result.geonames;
+            asylums.forEach((asylum) => {
               const popupContent = document.createElement("div");
               const title = document.createElement("h3");
-              title.textContent = university.name;
+              title.textContent = asylum.name;
 
               // Create a button to fetch Wikipedia data
               const triggerWikipediaButton = document.createElement("button");
               triggerWikipediaButton.textContent = "Wikipedia";
               triggerWikipediaButton.addEventListener("click", () => {
-                map.panTo([university.lat, university.lng]); // Center the map to the university
+                map.panTo([asylum.lat, asylum.lng]); // Center the map to the asylum
                 wikipediaAPI.fetchWikipediaForCentralLocation(
                   map,
-                  university.lat,
-                  university.lng
+                  asylum.lat,
+                  asylum.lng
                 );
               });
 
@@ -396,7 +374,7 @@ class GeoNamesAPI extends APIHandler {
               const zoomButton = document.createElement("button");
               zoomButton.textContent = "Zoom In";
               zoomButton.addEventListener("click", () =>
-                map.setView([university.lat, university.lng], 17)
+                map.setView([asylum.lat, asylum.lng], 17)
               );
 
               // Append buttons to popup content
@@ -404,15 +382,15 @@ class GeoNamesAPI extends APIHandler {
               popupContent.appendChild(triggerWikipediaButton);
               popupContent.appendChild(zoomButton);
 
-              const marker = L.marker([university.lat, university.lng], {
-                icon: universityIcon,
+              const marker = L.marker([asylum.lat, asylum.lng], {
+                icon: asylumIcon,
               }).addTo(map);
               marker.bindPopup(popupContent);
-              this.universityMarkers.push(marker); // Store the marker
+              this.asylumMarkers.push(marker); // Store the marker
             });
-            this.areUniversitiesDisplayed = true; // Update the display state
+            this.areAsylumsDisplayed = true; // Update the display state
           } else {
-            console.error("No insane universitys found.");
+            console.error("No insane asylums found.");
           }
         },
       });
@@ -423,9 +401,8 @@ class GeoNamesAPI extends APIHandler {
 class MapHandler {
   constructor(mapId) {
     this.map = L.map(mapId);
-    this.map.setView([51.505, -0.09], 10);
+    this.map.setView([51.505, -0.09], 13);
     this.userLocation = null;
-    this.countryBorder = null; // Add this line to store the country's border
     this.userLocationMarker = null;
     this.standardLayer = L.tileLayer(
       "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
@@ -439,112 +416,46 @@ class MapHandler {
     this.wikipediaAPI = new WikipediaAPI();
     this.geoNamesAPI = new GeoNamesAPI();
     this.locationCache = {};
-    this.markers = [];
-    this.geoJsonLayer = null; // Add this line to store the GeoJSON layer
     this.init();
   }
 
   init() {
     this.locateUser();
     this.addLayerToggle();
+    this.addLayersControlButton(); // New: Add layers control button
     this.addLocationButton();
     this.addWeatherButton();
     this.geoNamesAPI.addCitiesAndAirportsButton(this.map);
+    this.addWikipediaButton();
     this.addLandmarkButton();
-    this.addCountryBorders();
-    this.addUniversityButton(); // Add this line to initialize the university button
+    this.addAsylumButton(); // Add this line to initialize the asylum button
     this.map.on("locationfound", this.onLocationFound.bind(this));
-    this.addClearMarkersButton();
-    // Add click event to the map to create a marker
-    this.map.on("click", (e) => {
-      const lat = e.latlng.lat;
-      const lng = e.latlng.lng;
-
-      // Create a marker and add it to the map
-      const marker = L.marker([lat, lng]).addTo(this.map);
-
-      // Store the marker in the array
-      this.markers.push(marker);
-
-      // Add click event to the marker
-      marker.on("click", () => {
-        // Fetch Wikipedia info when marker is clicked
-        this.wikipediaAPI.fetchWikipediaForCentralLocation(this.map, lat, lng);
-      });
-    });
-  }
-
-  // Method to clear all markers
-  clearMarkers() {
-    this.markers.forEach((marker) => {
-      this.map.removeLayer(marker);
-    });
-    this.markers = [];
-  }
-
-  // Add border function
-  addCountryBorder(countryCode) {
-    $.ajax({
-      url: `ne_countries_50m.json`, // Specify the correct file path
-      data: {
-        countryCode: countryCode,
-      },
-      dataType: "json",
-      success: function (data) {
-        console.log("Received data:", data);
-
-        if (data.error) {
-          console.error("Error fetching border data: ", data.error);
-          return;
-        }
-
-        const borders = data.borders;
-        // Assuming borders is an array of lat, lng arrays
-        const latlngs = borders.map((border) => [border.lat, border.lng]);
-
-        // Draw the border
-        const polygon = L.polygon(latlngs, { color: "blue" }).addTo(this.map);
-      }.bind(this),
-      error: function (error) {
-        console.error("Error fetching border data: ", error);
-      },
-    });
-  }
-
-  // Add this in your init() method to create the button
-  addClearMarkersButton() {
-    const clearMarkersButton = L.easyButton({
-      states: [
-        {
-          stateName: "clear-markers",
-          icon: "fa-trash",
-          title: "Clear Markers",
-          onClick: (btn, map) => {
-            this.clearMarkers();
-          },
-        },
-      ],
-    }).addTo(this.map);
-  }
-
-  updateMap(latlng) {
-    // Remove existing marker if any
-    if (this.userLocationMarker) {
-      this.map.removeLayer(this.userLocationMarker);
-    }
-
-    // Update the map view
-    this.map.setView(latlng, 10);
-
-    // Add a new marker
-    this.userLocationMarker = L.marker(latlng)
-      .addTo(this.map)
-      .bindPopup("Selected Location")
-      .openPopup();
   }
 
   locateUser() {
     this.map.locate({ setView: true, maxZoom: 7 });
+  }
+
+  getCountryCode(lat, lng) {
+    return new Promise((resolve, reject) => {
+      $.ajax({
+        url: "./php/fetch_geonames.php", // Replace with your PHP URL
+        type: "GET",
+        dataType: "json",
+        data: { lat: lat, lng: lng },
+        success: function (data) {
+          if (data && data.countryCode) {
+            resolve(data.countryCode);
+          } else {
+            reject("Country code not found");
+          }
+        },
+        error: function (error) {
+          console.error("Error fetching country code: ", error);
+          reject(error);
+        },
+      });
+    });
   }
 
   addLayerToggle() {
@@ -570,6 +481,48 @@ class MapHandler {
             map.addLayer(this.standardLayer);
             btn.state("show-satellite");
           }.bind(this),
+        },
+      ],
+    }).addTo(this.map);
+  }
+
+  addLayersControlButton() {
+    // Define the base layers
+    const baseLayers = {
+      Standard: this.standardLayer,
+      Satellite: this.satelliteLayer,
+    };
+
+    // Create a layers control and add it to the map
+    const layersControl = L.control.layers(baseLayers, null, {
+      position: "topright",
+    });
+    layersControl.addTo(this.map);
+
+    // Create a custom button for toggling the layers control
+    L.easyButton({
+      id: "layer-toggle-button",
+      position: "topright",
+      type: "Layers",
+      leafletClasses: true,
+      states: [
+        {
+          stateName: "show-layers",
+          icon: '<img src="img/slayers.png" width="20" height="20">', // Replace with your layers icon
+          title: "Show Layers",
+          onClick: function (btn, map) {
+            layersControl.addTo(map); // Add the layers control to the map
+            btn.state("hide-layers"); // Update the button state
+          },
+        },
+        {
+          stateName: "hide-layers",
+          icon: '<img src="img/hlayers.png" width="20" height="20">', // Replace with your layers icon
+          title: "Hide Layers",
+          onClick: function (btn, map) {
+            map.removeControl(layersControl); // Remove the layers control from the map
+            btn.state("show-layers"); // Update the button state
+          },
         },
       ],
     }).addTo(this.map);
@@ -612,6 +565,24 @@ class MapHandler {
     }).addTo(this.map);
   }
 
+  addWikipediaButton() {
+    L.easyButton({
+      states: [
+        {
+          stateName: "show-wikipedia",
+          icon: '<img src="wiki.gif" width="20" height="20">', // Use your Wikipedia image
+          title: "Toggle Wikipedia",
+          onClick: (btn, map) => {
+            this.wikipediaAPI.fetchWikipediaForCentralLocation(
+              this.map,
+              this.locationCache
+            );
+          },
+        },
+      ],
+    }).addTo(this.map);
+  }
+
   addLandmarkButton() {
     const generateButtonConfig = (stateName, title, onClickHandler) => ({
       stateName,
@@ -641,7 +612,7 @@ class MapHandler {
     }).addTo(this.map);
   }
 
-  addUniversityButton() {
+  addAsylumButton() {
     const generateButtonConfig = (
       stateName,
       iconSrc,
@@ -654,25 +625,22 @@ class MapHandler {
       onClick: onClickHandler,
     });
 
-    const universityButtonConfig = generateButtonConfig(
-      "show-universities",
-      "img/uni.gif",
+    const asylumButtonConfig = generateButtonConfig(
+      "show-asylums",
+      "img/uni.gif", // Corrected: Path to your asylum image
       "Toggle Universities",
       async (btn, map) => {
-        if (!this.geoNamesAPI.areUniversitiesDisplayed) {
-          await this.geoNamesAPI.fetchInsaneUniversities(
-            map,
-            this.wikipediaAPI
-          );
+        if (!this.geoNamesAPI.areAsylumsDisplayed) {
+          await this.geoNamesAPI.fetchInsaneAsylums(map, this.wikipediaAPI);
         } else {
-          this.geoNamesAPI.clearUniversities(map);
+          this.geoNamesAPI.clearAsylums(map);
         }
-        this.geoNamesAPI.toggleUniversityDisplay();
+        this.geoNamesAPI.toggleAsylumDisplay();
       }
     );
 
     L.easyButton({
-      states: [universityButtonConfig],
+      states: [asylumButtonConfig],
     }).addTo(this.map);
   }
 
@@ -689,119 +657,41 @@ class MapHandler {
 document.addEventListener("DOMContentLoaded", function () {
   const mapHandler = new MapHandler("mapid");
 
-  // On page load, fetch continents and populate the dropdown
-  $(document).ready(function () {
-    $.ajax({
-      url: "./php/fetch_continents.php",
-      type: "GET",
-      dataType: "json",
-      success: function (data) {
-        // Populate continents dropdown
-        let options =
-          '<option value="" disabled selected>Select Continent</option>';
-        data.forEach(function (continent) {
-          options += `<option value="${continent}">${continent}</option>`;
-        });
-        $("#continent-select").html(options);
-      },
-    });
+  // Existing DOM event listeners and other logic can now use mapHandler, weatherAPI, and wikipediaAPI
+  const searchButton = document.getElementById("search-button");
+  const locationSearch = document.getElementById("location-search");
+
+  searchButton.addEventListener("click", function () {
+    const query = locationSearch.value.trim();
+    if (query) {
+      $.ajax({
+        url: "./php/fetch_opencage.php",
+        type: "GET",
+        dataType: "json",
+        data: { query: query },
+        success: function (data) {
+          if (data.results && data.results.length > 0) {
+            const cityInfo = data.results[0];
+            const latlng = [cityInfo.geometry.lat, cityInfo.geometry.lng];
+            mapHandler.map.flyTo(latlng, 15);
+          } else {
+            console.log("No results found");
+          }
+        },
+        error: function (error) {
+          console.error("Error fetching OpenCage data: ", error);
+        },
+      });
+    } else {
+      console.log("Search query is empty");
+    }
   });
 
-  // Add event listener to continents dropdown
-  $("#continent-select").change(function () {
-    const selectedContinent = $(this).val();
-    // Fetch countries based on selected continent
-    $.ajax({
-      url: "./php/fetch_countries.php",
-      type: "GET",
-      data: { continent: selectedContinent },
-      dataType: "json",
-      success: function (data) {
-        // Populate countries dropdown
-        let options =
-          '<option value="" disabled selected>Select Country</option>';
-        data.forEach(function (country) {
-          options += `<option value="${country.cca3}">${country.name.common}</option>`; // Use cca3 for alpha-3 code
-        });
-        $("#country-select").html(options);
-        $("#country-select").prop("disabled", false);
-      },
-      error: function (error) {
-        console.error("Error fetching country data: ", error);
-      },
-    });
-  });
-
-  // Add event listener to "Search" button
-  $("#search-button").click(function () {
-    const selectedCountryAlpha3Code = $("#country-select").val();
-    console.log("Selected Country Alpha-3 Code:", selectedCountryAlpha3Code);
-
-    // Fetch location based on selected country
-    $.ajax({
-      url: "php/fetch_location.php",
-      type: "GET",
-      data: { query: selectedCountryAlpha3Code },
-      dataType: "json",
-      success: function (receivedData) {
-        console.log("Received Data: ", receivedData);
-
-        const countryFeature = receivedData.features.find((feature) =>
-          feature.place_type.includes("country")
-        );
-
-        if (!countryFeature) {
-          console.error("No matching country found");
-          return;
-        }
-
-        const [lng, lat] = countryFeature.geometry.coordinates;
-        const wikidata = countryFeature.properties.wikidata;
-
-        console.log("Latitude: ", lat);
-        console.log("Longitude: ", lng);
-        console.log("Wikidata ID: ", wikidata);
-
-        // Add country border
-        mapHandler.addCountryBorder(selectedCountryAlpha3Code, lat, lng);
-
-        const marker = L.marker([lat, lng]).addTo(mapHandler.map);
-        mapHandler.map.flyTo([lat, lng], 7);
-
-        marker.on("click", function () {
-          $.ajax({
-            url: `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${wikidata}&format=json&origin=*`,
-            type: "GET",
-            success: function (data) {
-              console.log(data);
-              const entity = data.entities[wikidata];
-              const description = entity.descriptions.en
-                ? entity.descriptions.en.value
-                : "No description available";
-              const population = entity.claims.P1082
-                ? entity.claims.P1082[0].mainsnak.datavalue.value.amount
-                : "Unknown";
-
-              // Create a Leaflet popup with Wikidata information
-              L.popup()
-                .setLatLng([lat, lng])
-                .setContent(
-                  `<h3>${entity.labels.en.value}</h3>
-                   <p>${description}</p>
-                   <p>Population: ${population}</p>`
-                )
-                .openOn(mapHandler.map);
-            },
-            error: function (error) {
-              console.error("Error fetching Wikidata: ", error);
-            },
-          });
-        });
-      },
-      error: function (error) {
-        console.error("Error fetching location data: ", error);
-      },
-    });
+  locationSearch.addEventListener("keydown", function (event) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      searchButton.click();
+    }
   });
 
   // current zoom
