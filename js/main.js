@@ -1,64 +1,77 @@
-// Base APIHandler Class
+// Constants
+const OPEN_STREET_MAP_URL =
+  "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+
+const GOOGLE_SATELLITE_URL =
+  "http://www.google.cn/maps/vt?lyrs=s@189&gl=cn&x={x}&y={y}&z={z}";
+
 class APIHandler {
-  makeAjaxCall(url, type, dataType, data, successCallback, errorCallback) {
-    $.ajax({
-      url: url,
-      type: type,
-      dataType: dataType,
-      data: data,
-      success: successCallback,
-      error: errorCallback,
+  makeAjaxCall(url, type, dataType, data) {
+    return new Promise((resolve, reject) => {
+      $.ajax({
+        url: url,
+        type: type,
+        dataType: dataType,
+        data: data,
+        success: (result) => {
+          resolve(result);
+        },
+        error: (error) => {
+          reject(error);
+        },
+      });
     });
   }
 }
 
 // WeatherAPI Class
 class WeatherAPI extends APIHandler {
-  fetchWeatherForCentralLocation(map) {
-    const center = map.getCenter();
-    const lat = center.lat;
-    const lon = center.lng;
-    this.makeAjaxCall(
-      "./php/fetch_weather.php",
-      "GET",
-      "json",
-      { lat: lat, lon: lon },
-      function (data) {
-        console.log("Weather data:", data.weatherData);
+  async fetchWeatherForCentralLocation(map) {
+    try {
+      const center = map.getCenter();
+      const lat = center.lat;
+      const lon = center.lng;
 
-        if (data.weatherData) {
-          const weatherInfo = data.weatherData;
-          const weatherModal = $("#weather-modal");
-          const kelvinTemp = weatherInfo.main.temp;
-          const celsiusTemp = (kelvinTemp - 273.15).toFixed(2);
-          const fahrenheitTemp = ((celsiusTemp * 9) / 5 + 32).toFixed(2);
-          const iconCode = weatherInfo.weather[0].icon; // Assuming the icon code is in the first element of the 'weather' array
-          const iconUrl = `http://openweathermap.org/img/wn/${iconCode}.png`;
+      const data = await this.makeAjaxCall(
+        "./php/fetch_weather.php",
+        "GET",
+        "json",
+        { lat: lat, lon: lon }
+      );
 
-          $("#weather1").html(
-            `<img src="${iconUrl}" width="150" height="150">
+      console.log("Weather data:", data.weatherData);
+
+      if (data.weatherData) {
+        const weatherInfo = data.weatherData;
+        const weatherModal = $("#weather-modal");
+        const kelvinTemp = weatherInfo.main.temp;
+        const celsiusTemp = (kelvinTemp - 273.15).toFixed(2);
+        const fahrenheitTemp = ((celsiusTemp * 9) / 5 + 32).toFixed(2);
+        const iconCode = weatherInfo.weather[0].icon; // Assuming the icon code is in the first element of the 'weather' array
+        const iconUrl = `http://openweathermap.org/img/wn/${iconCode}.png`;
+
+        $("#weather1").html(
+          `<img src="${iconUrl}" width="150" height="150">
             <h3>${weatherInfo.name}, ${weatherInfo.sys.country}</h3>`
-          );
-          $("#weather2").html(
-            `<p>Temperature: ${celsiusTemp}°C / ${fahrenheitTemp}°F</p>`
-          );
-          $("#weather3").html(`<p>Humidity: ${weatherInfo.main.humidity}%</p>`);
+        );
+        $("#weather2").html(
+          `<p>Temperature: ${celsiusTemp}°C / ${fahrenheitTemp}°F</p>`
+        );
+        $("#weather3").html(`<p>Humidity: ${weatherInfo.main.humidity}%</p>`);
 
-          $("#weather4").html(
-            `<h4>Current Weather: ${weatherInfo.weather[0].description}</h4>`
-          );
-          $("#weather5").html(`<p>Wind: ${weatherInfo.wind.speed} mph</p>`);
-          $("#weather6").html(`<p>Clouds: ${weatherInfo.clouds.all}</p>`);
+        $("#weather4").html(
+          `<h4>Current Weather: ${weatherInfo.weather[0].description}</h4>`
+        );
+        $("#weather5").html(`<p>Wind: ${weatherInfo.wind.speed} mph</p>`);
+        $("#weather6").html(`<p>Clouds: ${weatherInfo.clouds.all}</p>`);
 
-          weatherModal.modal("show");
-        } else {
-          console.log("Weather data is not available.");
-        }
-      },
-      function (error) {
-        console.error("Error fetching data: ", error);
+        weatherModal.modal("show");
+      } else {
+        console.log("Weather data is not available.");
       }
-    );
+    } catch (error) {
+      console.error("Error fetching data: ", error);
+    }
   }
 }
 
@@ -69,74 +82,78 @@ class WikipediaAPI extends APIHandler {
     this.locationCache = {};
   }
 
-  fetchWikipediaForCentralLocation(map, lat = null, lon = null) {
-    console.log("fetchWikipediaForCentralLocation called");
-    if (!lat || !lon) {
-      const center = map.getCenter();
-      lat = center.lat.toFixed(6);
-      lon = center.lng.toFixed(6);
-    }
-
-    console.log("Sending lat:", lat, " lon:", lon);
-    this.makeAjaxCall(
-      "./php/fetch_wikipedia.php", // Your PHP file path
-      "GET",
-      "json",
-      { lat: lat, lon: lon }, // Pass parameters to PHP
-      (result) => {
-        console.log(result);
-        if (
-          result.placeInfo &&
-          result.placeInfo.geonames &&
-          result.placeInfo.geonames.length > 0
-        ) {
-          const placeName = result.placeInfo.geonames[0].adminName1;
-          const countryName = result.placeInfo.geonames[0].countryName;
-
-          let title = "Unknown";
-          let wikipediaSummary = "No information available.";
-
-          if (
-            result.wikipediaInfo &&
-            result.wikipediaInfo.geonames &&
-            result.wikipediaInfo.geonames.length > 0
-          ) {
-            title = result.wikipediaInfo.geonames[0].title;
-            wikipediaSummary = result.wikipediaInfo.geonames[0].summary;
-          }
-
-          let infoHtml = '<div><img src="lost.gif" width="150" height="150">';
-
-          if (title !== "Unknown") {
-            infoHtml += `<h2>${title}</h2>`;
-          }
-
-          if (placeName) {
-            infoHtml += `<h3>${placeName}</h3>`;
-          }
-
-          if (countryName) {
-            infoHtml += `<h4>${countryName}</h4>`;
-          }
-
-          if (wikipediaSummary !== "No information available.") {
-            infoHtml += `<p>${wikipediaSummary}</p>`;
-          }
-
-          if (result.placeInfo.geonames[0].name) {
-            infoHtml += `<p>Village/Town: ${result.placeInfo.geonames[0].name}</p>`;
-          }
-
-          infoHtml += `<p>Coordinates: ${result.placeInfo.geonames[0].lat}, ${result.placeInfo.geonames[0].lng}</p>`;
-          infoHtml += "</div>";
-
-          $("#wikipedia-summary").html(infoHtml);
-          $("#wikipedia-modal").modal("show");
-        } else {
-          console.error("No geonames data found.");
-        }
+  async fetchWikipediaForCentralLocation(map, lat = null, lon = null) {
+    try {
+      console.log("fetchWikipediaForCentralLocation called");
+      if (!lat || !lon) {
+        const center = map.getCenter();
+        lat = center.lat.toFixed(6);
+        lon = center.lng.toFixed(6);
       }
-    );
+
+      console.log("Sending lat:", lat, " lon:", lon);
+
+      const result = await this.makeAjaxCall(
+        "./php/fetch_wikipedia.php", // Your PHP file path
+        "GET",
+        "json",
+        { lat: lat, lon: lon } // Pass parameters to PHP
+      );
+
+      console.log(result);
+      if (
+        result.placeInfo &&
+        result.placeInfo.geonames &&
+        result.placeInfo.geonames.length > 0
+      ) {
+        const placeName = result.placeInfo.geonames[0].adminName1;
+        const countryName = result.placeInfo.geonames[0].countryName;
+
+        let title = "Unknown";
+        let wikipediaSummary = "No information available.";
+
+        if (
+          result.wikipediaInfo &&
+          result.wikipediaInfo.geonames &&
+          result.wikipediaInfo.geonames.length > 0
+        ) {
+          title = result.wikipediaInfo.geonames[0].title;
+          wikipediaSummary = result.wikipediaInfo.geonames[0].summary;
+        }
+
+        let infoHtml = '<div><img src="lost.gif" width="150" height="150">';
+
+        if (title !== "Unknown") {
+          infoHtml += `<h2>${title}</h2>`;
+        }
+
+        if (placeName) {
+          infoHtml += `<h3>${placeName}</h3>`;
+        }
+
+        if (countryName) {
+          infoHtml += `<h4>${countryName}</h4>`;
+        }
+
+        if (wikipediaSummary !== "No information available.") {
+          infoHtml += `<p>${wikipediaSummary}</p>`;
+        }
+
+        if (result.placeInfo.geonames[0].name) {
+          infoHtml += `<p>Village/Town: ${result.placeInfo.geonames[0].name}</p>`;
+        }
+
+        infoHtml += `<p>Coordinates: ${result.placeInfo.geonames[0].lat}, ${result.placeInfo.geonames[0].lng}</p>`;
+        infoHtml += "</div>";
+
+        $("#wikipedia-summary").html(infoHtml);
+        $("#wikipedia-modal").modal("show");
+      } else {
+        console.error("No geonames data found.");
+      }
+    } catch (error) {
+      console.error("Error fetching data: ", error);
+    }
   }
 }
 
@@ -153,6 +170,15 @@ class GeoNamesAPI extends APIHandler {
     this.landmarkMarkers = [];
     this.areUniversitiesDisplayed = false; // New state variable for universitys
     this.universityMarkers = []; // New array to store university markers
+    this.routeButton = null; // Add this line to store the route button
+  }
+
+  createPopup(content, lat, lng) {
+    return L.popup().setLatLng([lat, lng]).setContent(content);
+  }
+
+  addClickEventToMarker(marker, callback) {
+    marker.on("click", callback);
   }
 
   // In GeoNamesAPI class
@@ -179,7 +205,7 @@ class GeoNamesAPI extends APIHandler {
         dataType: "json",
         data: {
           featureCode: "AIRP",
-          maxRows: 50, // Limit to 50 airports
+          maxRows: 100, // Limit to 50 airports
           lat: lat,
           lng: lng, // Pass the central location coordinates
         },
@@ -266,7 +292,7 @@ class GeoNamesAPI extends APIHandler {
     } else {
       const featureCode = "CSTL"; // Feature code for historical landmarks
       const iconUrl = "./img/castle.gif"; // Icon URL for historical landmarks
-      const maxRows = 50; // Limit to 50 landmarks
+      const maxRows = 100; // Limit to 50 landmarks
       const bounds = map.getBounds();
       const southWest = bounds.getSouthWest();
       const northEast = bounds.getNorthEast();
@@ -423,22 +449,47 @@ class GeoNamesAPI extends APIHandler {
 class MapHandler {
   constructor(mapId) {
     this.map = L.map(mapId);
-    this.map.setView([51.505, -0.09], 5);
+    this.map.setView([51.505, -0.09], 8);
     this.userLocation = null;
     this.countryBorder = null; // Add this line to store the country's border
     this.userLocationMarker = null;
     this.routingControl = null; // Add this line
     this.currentAnimationIndex = 0; // Initialize to 0
     this.carMarker = null; // Add this line to store the car marker
-    this.isAnimationRunning = false; // Add this line
-    this.standardLayer = L.tileLayer(
-      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-      { maxZoom: 19 }
-    ).addTo(this.map);
-    this.satelliteLayer = L.tileLayer(
-      "http://www.google.cn/maps/vt?lyrs=s@189&gl=cn&x={x}&y={y}&z={z}",
-      { maxZoom: 19 }
+    this.areMarkersActive = false; // Add this line to track if markers are active
+    this.isAnimationRunning = false;
+    this.openStreetMap_HOT = L.tileLayer(
+      "https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png",
+      {
+        maxZoom: 19,
+      }
+    ); // Add this line
+    this.thunderforestTransportDark = L.tileLayer(
+      "https://{s}.tile.thunderforest.com/transport-dark/{z}/{x}/{y}.png?apikey={apikey}",
+      {
+        apikey: "8d88d1ca689749cdaf61d2e8b86bfbec",
+        maxZoom: 22,
+      }
     );
+
+    this.thunderforestSpinalMap = L.tileLayer(
+      "https://{s}.tile.thunderforest.com/spinal-map/{z}/{x}/{y}.png?apikey={apikey}",
+      {
+        apikey: "8d88d1ca689749cdaf61d2e8b86bfbec",
+        maxZoom: 22,
+      }
+    );
+
+    this.openTopoMap = L.tileLayer(
+      "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
+      {
+        maxZoom: 17,
+      }
+    );
+    this.standardLayer = L.tileLayer(OPEN_STREET_MAP_URL, {
+      maxZoom: 19,
+    }).addTo(this.map);
+    this.satelliteLayer = L.tileLayer(GOOGLE_SATELLITE_URL, { maxZoom: 19 });
     this.weatherAPI = new WeatherAPI();
     this.wikipediaAPI = new WikipediaAPI();
     this.geoNamesAPI = new GeoNamesAPI();
@@ -448,55 +499,152 @@ class MapHandler {
     this.isAnimationPaused = false; // To check if the animation is paused
     this.currentAnimationIndex = 0; // To keep track of the current animation index
     this.timeoutIds = []; // To store timeout IDs for clearing
-
     this.isMarkerPlacementActive = false;
     this.geoJsonLayer = null; // Add this line to store the GeoJSON layer
     this.init();
   }
 
   init() {
+    this.initializeMap();
+    this.initializeButtons();
+    this.initializeEventHandlers();
+  }
+
+  initializeMap() {
     this.locateUser();
     this.addLayerToggle();
+    this.map.invalidateSize();
+  }
+
+  initializeButtons() {
     this.addLocationButton();
     this.addWeatherButton();
-    this.addRouteButton(); // Add this line
-    this.map.invalidateSize();
+    this.routeButton = this.addRouteButton(); // Store the route button
+    this.routeButton.disable(); // Disable the route button initially
     this.geoNamesAPI.addCitiesAndAirportsButton(this.map);
     this.addLandmarkButton();
-    this.addUniversityButton(); // Add this line to initialize the university button
-    this.map.on("locationfound", this.onLocationFound.bind(this));
-    this.clearMarkers();
+    this.addUniversityButton();
     this.addClearMarkersButton();
-    // Add click event to the map to create a marker
-    this.map.on("click", (e) => {
-      if (this.isAnimationRunning) {
-        console.log("Animation is running, marker placement is disabled.");
-        return; // Skip marker placement if animation is running
+    this.addMapStyleToggleButton();
+  }
+
+  initializeEventHandlers() {
+    this.map.on("locationfound", this.onLocationFound.bind(this));
+    this.map.on("click", this.handleMapClick.bind(this));
+    this.updateRouteButtonState();
+    this.map.on("baselayerchange", this.updateCarIcon.bind(this));
+  }
+
+  updateRouteButtonState() {
+    if (this.markers.length >= 2) {
+      this.routeButton.enable();
+    } else {
+      this.routeButton.disable();
+    }
+  }
+
+  updateCarIcon() {
+    if (this.carMarker) {
+      if (this.map.hasLayer(this.thunderforestSpinalMap)) {
+        this.carMarker.setIcon(carIconSpinal);
+      } else {
+        this.carMarker.setIcon(carIconStandard);
       }
+    }
+  }
 
-      if (!this.isMarkerPlacementActive) return; // Skip if not active
+  handleMapClick(e) {
+    if (this.isAnimationRunning) {
+      console.log("Animation is running, marker placement is disabled.");
+      return;
+    }
 
-      const lat = e.latlng.lat;
-      const lng = e.latlng.lng;
+    if (!this.isMarkerPlacementActive) return;
 
-      // Create a marker and add it to the map
-      const marker = L.marker([lat, lng]).addTo(this.map);
-
-      // Store the marker in the array
-      this.markers.push(marker);
-
-      // Add click event to the marker
-      marker.on("click", () => {
-        // Fetch Wikipedia info when marker is clicked
-        this.wikipediaAPI.fetchWikipediaForCentralLocation(this.map, lat, lng);
-      });
+    const lat = e.latlng.lat;
+    const lng = e.latlng.lng;
+    const marker = L.marker([lat, lng]).addTo(this.map);
+    this.markers.push(marker);
+    marker.on("click", () => {
+      this.wikipediaAPI.fetchWikipediaForCentralLocation(this.map, lat, lng);
     });
+    this.updateRouteButtonState(); // Add this line
+  }
+
+  toggleMapStyle() {
+    if (this.map.hasLayer(this.standardLayer)) {
+      this.map.removeLayer(this.standardLayer);
+      this.openStreetMap_HOT.addTo(this.map);
+    } else if (this.map.hasLayer(this.openStreetMap_HOT)) {
+      this.map.removeLayer(this.openStreetMap_HOT);
+      this.thunderforestTransportDark.addTo(this.map);
+    } else if (this.map.hasLayer(this.thunderforestTransportDark)) {
+      this.map.removeLayer(this.thunderforestTransportDark);
+      this.thunderforestSpinalMap.addTo(this.map);
+    } else if (this.map.hasLayer(this.thunderforestSpinalMap)) {
+      this.map.removeLayer(this.thunderforestSpinalMap);
+      this.openTopoMap.addTo(this.map);
+    } else {
+      this.map.removeLayer(this.openTopoMap);
+      this.standardLayer.addTo(this.map);
+    }
+  }
+
+  addMapStyleToggleButton() {
+    L.easyButton({
+      states: [
+        {
+          stateName: "standard",
+          icon: "fas fa-map", // Font Awesome icon
+          title: "Standard Map",
+          onClick: (btn, map) => {
+            this.toggleMapStyle();
+            btn.state("hot");
+          },
+        },
+        {
+          stateName: "hot",
+          icon: "fas fa-fire", // Font Awesome icon
+          title: "Hot Map",
+          onClick: (btn, map) => {
+            this.toggleMapStyle();
+            btn.state("transport-dark");
+          },
+        },
+        {
+          stateName: "transport-dark",
+          icon: "fas fa-bus", // Font Awesome icon
+          title: "Transport Dark Map",
+          onClick: (btn, map) => {
+            this.toggleMapStyle();
+            btn.state("spinal");
+          },
+        },
+        {
+          stateName: "spinal",
+          icon: "fas fa-road", // Font Awesome icon
+          title: "Spinal Map",
+          onClick: (btn, map) => {
+            this.toggleMapStyle();
+            btn.state("topo");
+          },
+        },
+        {
+          stateName: "topo",
+          icon: "fas fa-mountain", // Font Awesome icon
+          title: "Topo Map",
+          onClick: (btn, map) => {
+            this.toggleMapStyle();
+            btn.state("standard");
+          },
+        },
+      ],
+    }).addTo(this.map);
   }
 
   // Method to clear all markers
   clearMarkers() {
     this.isAnimationRunning = false; // Stop any ongoing animations
-    this.isAnimationPaused = false;
     this.currentAnimationIndex = 0;
 
     this.markers.forEach((marker) => {
@@ -520,6 +668,7 @@ class MapHandler {
 
     // Force map to redraw
     this.map.invalidateSize();
+    this.updateRouteButtonState(); // Add this line
   }
 
   // Method to create a route
@@ -549,37 +698,51 @@ class MapHandler {
     }).addTo(this.map);
 
     // Create a car icon
-    const carIcon = L.icon({
+    const carIconStandard = L.icon({
       iconUrl: "img/car-icon.png",
       iconSize: [30, 30],
     });
 
+    const carIconSpinal = L.icon({
+      iconUrl: "img/ghostrider.gif",
+      iconSize: [100, 100],
+    });
+
     // Create a marker with the car icon
-    const carMarker = L.marker(waypoints[0], { icon: carIcon }).addTo(this.map);
+    const initialCarIcon = this.map.hasLayer(this.thunderforestSpinalMap)
+      ? carIconSpinal
+      : carIconStandard;
+    const carMarker = L.marker(waypoints[0], { icon: initialCarIcon }).addTo(
+      this.map
+    );
 
     // Set this.carMarker to the newly created carMarker
     this.carMarker = carMarker;
 
     // Listen for routesfound event on the Routing Control
     this.routingControl.on("routesfound", (e) => {
+      console.log("routesfound event triggered"); // Debugging line
       const coordinates = e.routes[0].coordinates;
-      let i = 0;
+      console.log("Coordinates:", coordinates); // Debugging line
 
       // Function to update car position
       const moveCar = () => {
+        console.log("Inside moveCar function"); // Debugging line
         if (
-          i < coordinates.length &&
+          this.currentAnimationIndex < coordinates.length &&
           this.carMarker &&
           this.isAnimationRunning
         ) {
-          this.carMarker.setLatLng(coordinates[i]);
-          i++;
+          console.log("Animating car"); // Debugging line
+          this.carMarker.setLatLng(coordinates[this.currentAnimationIndex]);
+          this.currentAnimationIndex++; // Update the current index
           setTimeout(moveCar, 5);
         }
       };
 
       // Start the animation
       this.isAnimationRunning = true; // Add this line
+      console.log("Starting animation"); // Debugging line
       moveCar();
     });
 
@@ -697,7 +860,7 @@ class MapHandler {
   }
 
   locateUser() {
-    this.map.locate({ setView: true, maxZoom: 7 });
+    this.map.locate({ setView: true, maxZoom: 6 });
   }
 
   addLayerToggle() {
@@ -828,8 +991,6 @@ class MapHandler {
       states: [universityButtonConfig],
     }).addTo(this.map);
   }
-
-  // Add this in your init() method to create the button
   addRouteButton() {
     const routeButton = L.easyButton({
       states: [
@@ -837,12 +998,22 @@ class MapHandler {
           stateName: "create-route",
           icon: "fa-car",
           title: "Create Route",
-          onClick: (btn, map) => {
-            this.createRoute();
+          onClick: () => {
+            console.log("Route button clicked"); // Debugging line
+            console.log(this); // Debugging line to check the context of 'this'
+
+            if (this.markers.length >= 2) {
+              // Removed this.areMarkersActive
+              console.log("Creating route"); // Debugging line
+              this.createRoute();
+            } else {
+              console.log("Cannot create route"); // Debugging line
+            }
           },
         },
       ],
     }).addTo(this.map);
+    return routeButton;
   }
 
   onLocationFound(e) {
@@ -854,136 +1025,138 @@ class MapHandler {
   }
 }
 
-// Initialize
-document.addEventListener("DOMContentLoaded", function () {
-  const mapHandler = new MapHandler("mapid");
+(function () {
+  // Initialize
+  document.addEventListener("DOMContentLoaded", function () {
+    const mapHandler = new MapHandler("mapid");
 
-  // On page load, fetch continents and populate the dropdown
-  $(document).ready(function () {
-    $.ajax({
-      url: "./php/fetch_continents.php",
-      type: "GET",
-      dataType: "json",
-      success: function (data) {
-        // Populate continents dropdown
-        let options =
-          '<option value="" disabled selected>Select Continent</option>';
-        data.forEach(function (continent) {
-          options += `<option value="${continent}">${continent}</option>`;
-        });
-        $("#continent-select").html(options);
-      },
-    });
-  });
-
-  // Add event listener to continents dropdown
-  $("#continent-select").change(function () {
-    const selectedContinent = $(this).val();
-    // Fetch countries based on selected continent
-    $.ajax({
-      url: "./php/fetch_countries.php",
-      type: "GET",
-      data: { continent: selectedContinent },
-      dataType: "json",
-      success: function (data) {
-        // Populate countries dropdown
-        let options =
-          '<option value="" disabled selected>Select Country</option>';
-        data.forEach(function (country) {
-          options += `<option value="${country.cca3}">${country.name.common}</option>`; // Use cca3 for alpha-3 code
-        });
-        $("#country-select").html(options);
-        $("#country-select").prop("disabled", false);
-      },
-      error: function (error) {
-        console.error("Error fetching country data: ", error);
-      },
-    });
-  });
-
-  // Define marker in a higher scope
-  let marker;
-
-  // Add event listener to "Search" button
-  $("#search-button").click(function () {
-    const selectedCountryAlpha3Code = $("#country-select").val(); // Get the selected country code directly
-    if (selectedCountryAlpha3Code) {
-      mapHandler.fetchAndDisplayCountryBorder(selectedCountryAlpha3Code); // <-- Change this line
-    } else {
-      console.log("No country selected");
-    }
-
-    // Fetch location based on selected country
-    $.ajax({
-      url: "php/fetch_location.php",
-      type: "GET",
-      data: { query: selectedCountryAlpha3Code },
-      dataType: "json",
-      success: function (receivedData) {
-        console.log("Received Data: ", receivedData);
-
-        const countryFeature = receivedData.features.find((feature) =>
-          feature.place_type.includes("country")
-        );
-
-        if (!countryFeature) {
-          console.error("No matching country found");
-          return;
-        }
-
-        const [lng, lat] = countryFeature.geometry.coordinates;
-        const wikidata = countryFeature.properties.wikidata;
-
-        console.log("Latitude: ", lat);
-        console.log("Longitude: ", lng);
-        console.log("Wikidata ID: ", wikidata);
-
-        // Center the map on the selected country's coordinates
-        mapHandler.map.setView([lat, lng], 7); // Adjust the zoom level as needed
-
-        // Create a marker and add it to the map
-        const marker = L.marker([lat, lng]).addTo(mapHandler.map);
-
-        // Add click event to the marker
-        marker.on("click", function () {
-          $.ajax({
-            url: `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${wikidata}&format=json&origin=*`,
-            type: "GET",
-            success: function (data) {
-              console.log(data);
-              const entity = data.entities[wikidata];
-              const description = entity.descriptions.en
-                ? entity.descriptions.en.value
-                : "No description available";
-              const population = entity.claims.P1082
-                ? entity.claims.P1082[0].mainsnak.datavalue.value.amount
-                : "Unknown";
-
-              // Create a Leaflet popup with Wikidata information
-              L.popup()
-                .setLatLng([lat, lng])
-                .setContent(
-                  `<h3>${entity.labels.en.value}</h3>
-                 <p>${description}</p>
-                 <p>Population: ${population}</p>`
-                )
-                .openOn(mapHandler.map);
-            },
-            error: function (error) {
-              console.error("Error fetching Wikidata: ", error);
-            },
+    // On page load, fetch continents and populate the dropdown
+    $(document).ready(function () {
+      $.ajax({
+        url: "./php/fetch_continents.php",
+        type: "GET",
+        dataType: "json",
+        success: function (data) {
+          let options =
+            '<option value="" disabled selected>Select Continent</option>';
+          data.forEach(function (continent) {
+            options += `<option value="${continent}">${continent}</option>`;
           });
-        });
-      },
-      error: function (error) {
-        console.error("Error fetching location data: ", error);
-      },
+          $("#continent-select").html(options);
+        },
+      });
+    });
+
+    // Add event listener to continents dropdown
+    $("#continent-select").change(function () {
+      const selectedContinent = $(this).val();
+      $.ajax({
+        url: "./php/fetch_countries.php",
+        type: "GET",
+        data: { continent: selectedContinent },
+        dataType: "json",
+        success: function (data) {
+          let options =
+            '<option value="" disabled selected>Select Country</option>';
+          data.forEach(function (country) {
+            options += `<option value="${country.cca3}">${country.name.common}</option>`;
+          });
+          $("#country-select").html(options);
+          $("#country-select").prop("disabled", false);
+        },
+        error: function (error) {
+          console.error("Error fetching country data: ", error);
+        },
+      });
+    });
+
+    // Define marker in a higher scope
+    let marker;
+
+    // Add event listener to "Search" button
+    $("#search-button").click(function () {
+      if (marker) {
+        mapHandler.map.removeLayer(marker);
+      }
+
+      const selectedCountryAlpha3Code = $("#country-select").val();
+      if (selectedCountryAlpha3Code) {
+        mapHandler.fetchAndDisplayCountryBorder(selectedCountryAlpha3Code);
+      } else {
+        console.log("No country selected");
+      }
+      // Fetch location based on selected country
+      $.ajax({
+        url: "php/fetch_location.php",
+        type: "GET",
+        data: { query: selectedCountryAlpha3Code },
+        dataType: "json",
+        success: function (receivedData) {
+          console.log("Received Data: ", receivedData);
+
+          const countryFeature = receivedData.features.find((feature) =>
+            feature.place_type.includes("country")
+          );
+
+          if (!countryFeature) {
+            console.error("No matching country found");
+            return;
+          }
+
+          const [lng, lat] = countryFeature.geometry.coordinates;
+          const wikidata = countryFeature.properties.wikidata;
+
+          console.log("Latitude: ", lat);
+          console.log("Longitude: ", lng);
+          console.log("Wikidata ID: ", wikidata);
+
+          // Center the map on the selected country's coordinates
+          mapHandler.map.setView([lat, lng], 7); // Adjust the zoom level as needed
+
+          // Create a marker and add it to the map
+          marker = L.marker([lat, lng]).addTo(mapHandler.map);
+
+          // Add click event to the marker
+          marker.on("click", function () {
+            $.ajax({
+              url: `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${wikidata}&format=json&origin=*`,
+              type: "GET",
+              success: function (data) {
+                console.log(data);
+                const entity = data.entities[wikidata];
+                const description = entity.descriptions.en
+                  ? entity.descriptions.en.value
+                  : "No description available";
+                const population = entity.claims.P1082
+                  ? entity.claims.P1082[0].mainsnak.datavalue.value.amount
+                  : "Unknown";
+
+                // Create a Leaflet popup with Wikidata information
+                L.popup()
+                  .setLatLng([lat, lng])
+                  .setContent(
+                    `<h3>${entity.labels.en.value}</h3>
+                   <p>${description}</p>
+                   <p>Population: ${population}</p>`
+                  )
+                  .openOn(mapHandler.map);
+              },
+              error: function (error) {
+                console.error("Error fetching Wikidata: ", error);
+              },
+            });
+          });
+        },
+        error: function (error) {
+          console.error("Error fetching location data: ", error);
+        },
+      });
+    });
+
+    // current zoom
+    mapHandler.map.on("zoomend", function () {
+      const zoomLevel = mapHandler.map.getZoom();
+      document.getElementById("zoom-display").innerHTML = `Zoom: ${zoomLevel}`;
     });
   });
-
-  // current zoom
-  mapHandler.map.on("zoomend", function () {
-    const zoomLevel = mapHandler.map.getZoom();
-    document.getElementById("zoom-display").innerHTML = `Zoom: ${zoomLevel}`;
-  });
-});
+})();

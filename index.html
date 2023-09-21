@@ -1,10 +1,24 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="description" content="">
-    <meta name="author" content="David Fox">
+    <!-- Standard Meta Tags -->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Gazetteer is a comprehensive map and geo-information portal. Find locations, weather, and more.">
+<meta name="keywords" content="Gazetteer, Map, Geo, Location, Weather, Navigation">
+<meta name="author" content="David Fox">
+
+<!-- Social Media Meta Tags (Open Graph & Twitter Cards) -->
+<meta property="og:title" content="Gazetteer: Your Ultimate Map and Geo-Information Portal">
+<meta property="og:description" content="Explore locations, get real-time weather updates, and much more with Gazetteer.">
+<meta property="og:image" content="logo.png">
+<meta property="og:url" content="https://davidfoxdev.com/gaz">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Gazetteer: Your Ultimate Map and Geo-Information Portal">
+<meta name="twitter:description" content="Explore locations, get real-time weather updates, and much more with Gazetteer.">
+<meta name="twitter:image" content="https://yourwebsite.com/path/to/image.jpg">
+
     <link rel="icon" type="image/png" href="icon.png">
 
     <!-- Stylesheets -->
@@ -32,11 +46,11 @@
       </button>
       <div class="collapse navbar-collapse" id="navbarNav">
         <form class="form-inline my-2 my-lg-0 ml-auto">
-  <select class="form-control mr-sm-2" id="continent-select">
-    <option value="" disabled selected>Select Continent</option>
+          <select class="form-control mr-sm-2" id="continent-select" aria-label="Select Continent">
+            <option value="" disabled selected>Select Continent</option>
     <!-- Continent options here -->
   </select>
-  <select class="form-control mr-sm-2" id="country-select" disabled>
+  <select class="form-control mr-sm-2" id="country-select" aria-label="Select Country" disabled>
     <option value="" disabled selected>Select Country</option>
     <!-- Country options will be populated here -->
   </select>
