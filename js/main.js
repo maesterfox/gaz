@@ -423,10 +423,14 @@ class GeoNamesAPI extends APIHandler {
 class MapHandler {
   constructor(mapId) {
     this.map = L.map(mapId);
-    this.map.setView([51.505, -0.09], 10);
+    this.map.setView([51.505, -0.09], 5);
     this.userLocation = null;
     this.countryBorder = null; // Add this line to store the country's border
     this.userLocationMarker = null;
+    this.routingControl = null; // Add this line
+    this.currentAnimationIndex = 0; // Initialize to 0
+    this.carMarker = null; // Add this line to store the car marker
+    this.isAnimationRunning = false; // Add this line
     this.standardLayer = L.tileLayer(
       "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
       { maxZoom: 19 }
@@ -440,6 +444,12 @@ class MapHandler {
     this.geoNamesAPI = new GeoNamesAPI();
     this.locationCache = {};
     this.markers = [];
+    this.isAnimationRunning = false; // To check if the animation is running
+    this.isAnimationPaused = false; // To check if the animation is paused
+    this.currentAnimationIndex = 0; // To keep track of the current animation index
+    this.timeoutIds = []; // To store timeout IDs for clearing
+
+    this.isMarkerPlacementActive = false;
     this.geoJsonLayer = null; // Add this line to store the GeoJSON layer
     this.init();
   }
@@ -449,14 +459,23 @@ class MapHandler {
     this.addLayerToggle();
     this.addLocationButton();
     this.addWeatherButton();
+    this.addRouteButton(); // Add this line
+    this.map.invalidateSize();
     this.geoNamesAPI.addCitiesAndAirportsButton(this.map);
     this.addLandmarkButton();
-    this.addCountryBorders();
     this.addUniversityButton(); // Add this line to initialize the university button
     this.map.on("locationfound", this.onLocationFound.bind(this));
+    this.clearMarkers();
     this.addClearMarkersButton();
     // Add click event to the map to create a marker
     this.map.on("click", (e) => {
+      if (this.isAnimationRunning) {
+        console.log("Animation is running, marker placement is disabled.");
+        return; // Skip marker placement if animation is running
+      }
+
+      if (!this.isMarkerPlacementActive) return; // Skip if not active
+
       const lat = e.latlng.lat;
       const lng = e.latlng.lng;
 
@@ -476,37 +495,160 @@ class MapHandler {
 
   // Method to clear all markers
   clearMarkers() {
+    this.isAnimationRunning = false; // Stop any ongoing animations
+    this.isAnimationPaused = false;
+    this.currentAnimationIndex = 0;
+
     this.markers.forEach((marker) => {
       this.map.removeLayer(marker);
     });
     this.markers = [];
+
+    if (this.routingControl) {
+      this.map.removeControl(this.routingControl);
+      this.routingControl = null;
+    }
+
+    console.log("Before removing carMarker:", this.carMarker); // Debugging line
+
+    if (this.carMarker) {
+      this.map.removeLayer(this.carMarker);
+      this.carMarker = null;
+    }
+
+    console.log("After removing carMarker:", this.carMarker); // Debugging line
+
+    // Force map to redraw
+    this.map.invalidateSize();
   }
 
-  // Add border function
-  addCountryBorder(countryCode) {
-    $.ajax({
-      url: `ne_countries_50m.json`, // Specify the correct file path
-      data: {
-        countryCode: countryCode,
-      },
-      dataType: "json",
-      success: function (data) {
-        console.log("Received data:", data);
+  // Method to create a route
+  createRoute() {
+    // Define waypoints here
+    const waypoints = this.markers.map((marker) =>
+      L.latLng(marker.getLatLng())
+    );
 
-        if (data.error) {
-          console.error("Error fetching border data: ", data.error);
-          return;
+    if (this.isAnimationRunning) {
+      // Show a popup from the car icon
+      if (this.carMarker) {
+        const popup = L.popup()
+          .setLatLng(this.carMarker.getLatLng())
+          .setContent("Hold your horses, I'm on a route here!")
+          .openOn(this.map);
+      }
+      return;
+    }
+
+    // Create a routing control and assign it to the class variable
+    this.routingControl = L.Routing.control({
+      waypoints: waypoints,
+      routeWhileDragging: true,
+      addWaypoints: false,
+      draggableWaypoints: false,
+    }).addTo(this.map);
+
+    // Create a car icon
+    const carIcon = L.icon({
+      iconUrl: "img/car-icon.png",
+      iconSize: [30, 30],
+    });
+
+    // Create a marker with the car icon
+    const carMarker = L.marker(waypoints[0], { icon: carIcon }).addTo(this.map);
+
+    // Set this.carMarker to the newly created carMarker
+    this.carMarker = carMarker;
+
+    // Listen for routesfound event on the Routing Control
+    this.routingControl.on("routesfound", (e) => {
+      const coordinates = e.routes[0].coordinates;
+      let i = 0;
+
+      // Function to update car position
+      const moveCar = () => {
+        if (
+          i < coordinates.length &&
+          this.carMarker &&
+          this.isAnimationRunning
+        ) {
+          this.carMarker.setLatLng(coordinates[i]);
+          i++;
+          setTimeout(moveCar, 5);
         }
+      };
 
-        const borders = data.borders;
-        // Assuming borders is an array of lat, lng arrays
-        const latlngs = borders.map((border) => [border.lat, border.lng]);
+      // Start the animation
+      this.isAnimationRunning = true; // Add this line
+      moveCar();
+    });
 
-        // Draw the border
-        const polygon = L.polygon(latlngs, { color: "blue" }).addTo(this.map);
-      }.bind(this),
-      error: function (error) {
-        console.error("Error fetching border data: ", error);
+    // Function to update car position
+    const moveCar = () => {
+      if (
+        this.currentAnimationIndex < coordinates.length &&
+        this.carMarker &&
+        this.isAnimationRunning
+      ) {
+        this.carMarker.setLatLng(coordinates[this.currentAnimationIndex]);
+        this.currentAnimationIndex++; // Update the current index
+        setTimeout(moveCar, 5); // Move every 1 second
+      }
+    };
+  }
+
+  // Function to fetch and display country border
+  fetchAndDisplayCountryBorder(countryCode) {
+    if (!countryCode) {
+      console.error("Invalid country code");
+      return;
+    }
+
+    // Load the GeoJSON file
+    $.ajax({
+      url: `./php/fetch_country_border.php?countryCode=${countryCode}`,
+      type: "GET",
+      dataType: "json",
+      success: (result) => {
+        console.log;
+        if (result.status.code === 200) {
+          // Extract the relevant data
+          const coordinates = result.data.geometry.coordinates;
+
+          // Create a GeoJSON feature
+          const borderData = {
+            type: "Feature",
+            properties: {},
+            geometry: {
+              type: "Polygon",
+              coordinates: coordinates,
+            },
+          };
+
+          // Remove existing border if any
+          if (this.geoJsonLayer) {
+            this.map.removeLayer(this.geoJsonLayer);
+          }
+
+          // Define the style for the border
+          const borderStyle = {
+            color: "#f43ff4",
+            weight: 2,
+            opacity: 0.3,
+          };
+
+          // Add the GeoJSON layer to the map
+          this.geoJsonLayer = L.geoJSON(borderData, {
+            style: borderStyle,
+          }).addTo(this.map);
+        } else {
+          console.error("Server response was not ok");
+        }
+      },
+      error: (jqXHR, textStatus, errorThrown) => {
+        console.error(`Fetch error: ${textStatus}`);
+        console.error("Error details:", errorThrown);
+        console.error("Full response object:", jqXHR);
       },
     });
   }
@@ -516,11 +658,22 @@ class MapHandler {
     const clearMarkersButton = L.easyButton({
       states: [
         {
-          stateName: "clear-markers",
-          icon: "fa-trash",
-          title: "Clear Markers",
+          stateName: "activate-markers",
+          icon: "fa-map-marker",
+          title: "Activate Markers",
           onClick: (btn, map) => {
+            this.isMarkerPlacementActive = true;
+            btn.state("deactivate-markers");
+          },
+        },
+        {
+          stateName: "deactivate-markers",
+          icon: "fa-trash",
+          title: "Deactivate Markers",
+          onClick: (btn, map) => {
+            this.isMarkerPlacementActive = false;
             this.clearMarkers();
+            btn.state("activate-markers");
           },
         },
       ],
@@ -676,6 +829,22 @@ class MapHandler {
     }).addTo(this.map);
   }
 
+  // Add this in your init() method to create the button
+  addRouteButton() {
+    const routeButton = L.easyButton({
+      states: [
+        {
+          stateName: "create-route",
+          icon: "fa-car",
+          title: "Create Route",
+          onClick: (btn, map) => {
+            this.createRoute();
+          },
+        },
+      ],
+    }).addTo(this.map);
+  }
+
   onLocationFound(e) {
     this.userLocation = e.latlng;
     this.userLocationMarker = L.marker(e.latlng)
@@ -732,10 +901,17 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 
+  // Define marker in a higher scope
+  let marker;
+
   // Add event listener to "Search" button
   $("#search-button").click(function () {
-    const selectedCountryAlpha3Code = $("#country-select").val();
-    console.log("Selected Country Alpha-3 Code:", selectedCountryAlpha3Code);
+    const selectedCountryAlpha3Code = $("#country-select").val(); // Get the selected country code directly
+    if (selectedCountryAlpha3Code) {
+      mapHandler.fetchAndDisplayCountryBorder(selectedCountryAlpha3Code); // <-- Change this line
+    } else {
+      console.log("No country selected");
+    }
 
     // Fetch location based on selected country
     $.ajax({
@@ -762,12 +938,13 @@ document.addEventListener("DOMContentLoaded", function () {
         console.log("Longitude: ", lng);
         console.log("Wikidata ID: ", wikidata);
 
-        // Add country border
-        mapHandler.addCountryBorder(selectedCountryAlpha3Code, lat, lng);
+        // Center the map on the selected country's coordinates
+        mapHandler.map.setView([lat, lng], 7); // Adjust the zoom level as needed
 
+        // Create a marker and add it to the map
         const marker = L.marker([lat, lng]).addTo(mapHandler.map);
-        mapHandler.map.flyTo([lat, lng], 7);
 
+        // Add click event to the marker
         marker.on("click", function () {
           $.ajax({
             url: `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${wikidata}&format=json&origin=*`,
@@ -787,8 +964,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 .setLatLng([lat, lng])
                 .setContent(
                   `<h3>${entity.labels.en.value}</h3>
-                   <p>${description}</p>
-                   <p>Population: ${population}</p>`
+                 <p>${description}</p>
+                 <p>Population: ${population}</p>`
                 )
                 .openOn(mapHandler.map);
             },

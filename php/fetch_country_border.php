@@ -1,26 +1,27 @@
 <?php
-$countryCode = $_GET['countryCode'] ?? null;
+header('Content-Type: application/json');
 
-if (!$countryCode) {
-    echo json_encode(['error' => 'Country code is required']);
-    exit;
+// Get the country code from the GET request
+$countryCode = $_GET['countryCode'];
+
+// Read the GeoJSON file
+$geojson = file_get_contents('./country_borders.geo.json');
+$data = json_decode($geojson, true);
+
+// Initialize an empty array to hold the border data for the selected country
+$selectedCountryData = [];
+
+// Loop through each feature to find the one that matches the country code
+foreach ($data['features'] as $feature) {
+    if ($feature['properties']['iso_a3'] === $countryCode) {
+        $selectedCountryData = $feature;
+        break;
+    }
 }
 
-$url = "https://restcountries.com/v3.1/alpha/{$countryCode}";
-
-$response = file_get_contents($url);
-
-if ($response === FALSE) {
-    echo json_encode(['error' => 'Failed to fetch data']);
-    exit;
+// Check if data was found
+if (empty($selectedCountryData)) {
+    echo json_encode(['status' => ['code' => 404, 'message' => 'Country not found']]);
+} else {
+    echo json_encode(['status' => ['code' => 200, 'message' => 'Success'], 'data' => $selectedCountryData]);
 }
-
-$countryData = json_decode($response, true);
-$borderData = $countryData[0]['borders'] ?? null;
-
-if (!$borderData) {
-    echo json_encode(['error' => 'No border data available']);
-    exit;
-}
-
-echo json_encode(['borders' => $borderData]);
