@@ -769,25 +769,13 @@ class MapHandler {
 
     // Load the GeoJSON file
     $.ajax({
-      url: `./php/fetch_country_border.php?countryCode=${countryCode}`,
+      url: `./php/fetch_country_border.php`, // Adjust the URL as needed
       type: "GET",
+      data: { countryCode: countryCode }, // Pass countryCode as a parameter
       dataType: "json",
       success: (result) => {
-        console.log;
-        if (result.status.code === 200) {
-          // Extract the relevant data
-          const coordinates = result.data.geometry.coordinates;
-
-          // Create a GeoJSON feature
-          const borderData = {
-            type: "Feature",
-            properties: {},
-            geometry: {
-              type: "Polygon",
-              coordinates: coordinates,
-            },
-          };
-
+        // Check if the result has the expected structure
+        if (result && result.properties && result.geometry) {
           // Remove existing border if any
           if (this.geoJsonLayer) {
             this.map.removeLayer(this.geoJsonLayer);
@@ -800,12 +788,19 @@ class MapHandler {
             opacity: 0.3,
           };
 
+          // Create a GeoJSON feature from the result
+          const geoJsonFeature = {
+            type: "Feature",
+            properties: result.properties,
+            geometry: result.geometry,
+          };
+
           // Add the GeoJSON layer to the map
-          this.geoJsonLayer = L.geoJSON(borderData, {
+          this.geoJsonLayer = L.geoJSON(geoJsonFeature, {
             style: borderStyle,
           }).addTo(this.map);
         } else {
-          console.error("Server response was not ok");
+          console.error("Invalid GeoJSON data format");
         }
       },
       error: (jqXHR, textStatus, errorThrown) => {
