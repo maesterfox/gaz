@@ -416,6 +416,8 @@ class MapHandler {
     this.wikipediaAPI = new WikipediaAPI();
     this.geoNamesAPI = new GeoNamesAPI();
     this.locationCache = {};
+    this.nuclearMarkers = [];
+
     this.init();
   }
 
@@ -427,6 +429,7 @@ class MapHandler {
     this.addWeatherButton();
     this.geoNamesAPI.addCitiesAndAirportsButton(this.map);
     this.addWikipediaButton();
+    this.addNuclearToggleButton();
     this.addLandmarkButton();
     this.addAsylumButton(); // Add this line to initialize the asylum button
     this.map.on("locationfound", this.onLocationFound.bind(this));
@@ -456,6 +459,64 @@ class MapHandler {
         },
       });
     });
+  }
+
+  addNuclearMarkers(data) {
+    const coordinates = data.map((item) => {
+      return [
+        parseFloat(item["Location.Cordinates.Latitude"]),
+        parseFloat(item["Location.Cordinates.Longitude"]),
+      ];
+    });
+    for (let i = 0; i < coordinates.length; i++) {
+      const marker = L.marker([coordinates[i][0], coordinates[i][1]]);
+      marker.addTo(this.map);
+      this.nuclearMarkers.push(marker);
+    }
+  }
+
+  removeNuclearMarkers() {
+    for (let i = 0; i < this.nuclearMarkers.length; i++) {
+      this.map.removeLayer(this.nuclearMarkers[i]);
+    }
+    this.nuclearMarkers = [];
+  }
+
+  addNuclearToggleButton() {
+    console.log("Function addNuclearToggleButton called");
+
+    L.easyButton({
+      states: [
+        {
+          stateName: "show-nuclear",
+          icon: "/img/nuclear.gif",
+          title: "Show Nuclear Explosions",
+          onClick: (btn, map) => {
+            $.ajax({
+              url: "php/read_csv.php",
+              type: "GET",
+              dataType: "json",
+              success: (data) => {
+                this.addNuclearMarkers(data);
+                btn.state("hide-nuclear");
+              },
+              error: (error) => {
+                console.error("Error fetching data: ", error);
+              },
+            });
+          },
+        },
+        {
+          stateName: "hide-nuclear",
+          icon: "fa-times",
+          title: "Hide Nuclear Explosions",
+          onClick: (btn, map) => {
+            this.removeNuclearMarkers();
+            btn.state("show-nuclear");
+          },
+        },
+      ],
+    }).addTo(this.map);
   }
 
   addLayerToggle() {
@@ -565,23 +626,23 @@ class MapHandler {
     }).addTo(this.map);
   }
 
-  addWikipediaButton() {
-    L.easyButton({
-      states: [
-        {
-          stateName: "show-wikipedia",
-          icon: '<img src="wiki.gif" width="20" height="20">', // Use your Wikipedia image
-          title: "Toggle Wikipedia",
-          onClick: (btn, map) => {
-            this.wikipediaAPI.fetchWikipediaForCentralLocation(
-              this.map,
-              this.locationCache
-            );
-          },
-        },
-      ],
-    }).addTo(this.map);
-  }
+  // addWikipediaButton() {
+  //   L.easyButton({
+  //     states: [
+  //       {
+  //         stateName: "show-wikipedia",
+  //         icon: '<img src="wiki.gif" width="20" height="20">', // Use your Wikipedia image
+  //         title: "Toggle Wikipedia",
+  //         onClick: (btn, map) => {
+  //           this.wikipediaAPI.fetchWikipediaForCentralLocation(
+  //             this.map,
+  //             this.locationCache
+  //           );
+  //         },
+  //       },
+  //     ],
+  //   }).addTo(this.map);
+  // }
 
   addLandmarkButton() {
     const generateButtonConfig = (stateName, title, onClickHandler) => ({
