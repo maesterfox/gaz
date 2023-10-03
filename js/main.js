@@ -1,21 +1,39 @@
-// Constants
+// Preloader
+$(window).on("load", function () {
+  console.log("Window loaded"); // Debugging log
+  if ($("#preloader").length) {
+    console.log("Hide"); // Debugging log
+    $("#preloader")
+      .delay(1000)
+      .fadeOut("slow", function () {
+        $(this).remove();
+      });
+  }
+});
+
+// Constants for map URLs
 const OPEN_STREET_MAP_URL =
   "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 
 const GOOGLE_SATELLITE_URL =
   "http://www.google.cn/maps/vt?lyrs=s@189&gl=cn&x={x}&y={y}&z={z}";
 
+// Class to handle AJAX calls
 class APIHandler {
+  // Function to make an AJAX call and return a promise
   makeAjaxCall(url, type, dataType, data) {
     return new Promise((resolve, reject) => {
+      // Perform the AJAX call
       $.ajax({
         url: url,
         type: type,
         dataType: dataType,
         data: data,
+        // Resolve the promise on successful AJAX call
         success: (result) => {
           resolve(result);
         },
+        // Reject the promise on error
         error: (error) => {
           reject(error);
         },
@@ -24,14 +42,16 @@ class APIHandler {
   }
 }
 
-// WeatherAPI Class
+// Class to handle weather-related API calls
 class WeatherAPI extends APIHandler {
+  // Function to fetch weather data for the central location of the map
   async fetchWeatherForCentralLocation(map) {
     try {
       const center = map.getCenter();
       const lat = center.lat;
       const lon = center.lng;
 
+      // Make an AJAX call to fetch weather data
       const data = await this.makeAjaxCall(
         "./php/fetch_weather.php",
         "GET",
@@ -39,6 +59,7 @@ class WeatherAPI extends APIHandler {
         { lat: lat, lon: lon }
       );
 
+      // Log the weather data received from the AJAX call
       console.log("Weather data:", data.weatherData);
 
       if (data.weatherData) {
@@ -46,13 +67,15 @@ class WeatherAPI extends APIHandler {
         const weatherModal = $("#weather-modal");
         const kelvinTemp = weatherInfo.main.temp;
         const celsiusTemp = (kelvinTemp - 273.15).toFixed(2);
+        // Convert temperature from Kelvin to Celsius and Fahrenheit
         const fahrenheitTemp = ((celsiusTemp * 9) / 5 + 32).toFixed(2);
         const iconCode = weatherInfo.weather[0].icon; // Assuming the icon code is in the first element of the 'weather' array
         const iconUrl = `http://openweathermap.org/img/wn/${iconCode}.png`;
 
+        // Update the weather modal with weather details
         $("#weather1").html(
           `<img src="${iconUrl}" width="150" height="150">
-            <h3>${weatherInfo.name}, ${weatherInfo.sys.country}</h3>`
+   <h3>${weatherInfo.name}, ${weatherInfo.sys.country}</h3>`
         );
         $("#weather2").html(
           `<p>Temperature: ${celsiusTemp}°C / ${fahrenheitTemp}°F</p>`
