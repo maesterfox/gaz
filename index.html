@@ -35,24 +35,22 @@
       <img src="logo.png" alt="MapApp Logo" class="navbar-logo">
       <h1 class="navbar-brand"></h1>
       <div id="zoom-display" class="mx-auto">Zoom: 10</div>
-    
+      
       <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
       </button>
       <div class="collapse navbar-collapse" id="navbarNav">
         <form class="form-inline my-2 my-lg-0 ml-auto">
-          <select class="form-control mr-sm-2" id="continent-select" aria-label="Select Continent">
-            <option value="" disabled selected>Select Continent</option>
-    <!-- Continent options here -->
-  </select>
-  <select class="form-control mr-sm-2" id="country-select" aria-label="Select Country" disabled>
-    <option value="" disabled selected>Select Country</option>
-    <!-- Country options will be populated here -->
-  </select>
-  <button class="btn btn-outline-primary my-2 my-sm-0" type="button" id="search-button">Search</button>
-</form>
+          <!-- Continent dropdown removed -->
+          <select class="form-control mr-sm-2" id="country-select" aria-label="Select Country">
+            <option value="" disabled selected>Select Country</option>
+            <!-- Country options will be populated here -->
+          </select>
+          <button class="btn btn-outline-primary my-2 my-sm-0" type="button" id="search-button">Search</button>
+        </form>
       </div>
     </nav>
+    
     
     <div id="preloader"></div>
 

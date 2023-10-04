@@ -481,6 +481,11 @@ class MapHandler {
     this.carMarker = null; // Add this line to store the car marker
     this.areMarkersActive = false; // Add this line to track if markers are active
     this.isAnimationRunning = false;
+    this.singleMarker = L.marker([51.5, -0.09]); // Initialize this as per your requirement
+    this.pointdata = L.layerGroup(); // Initialize this as per your requirement
+    this.linedata = L.layerGroup(); // Initialize this as per your requirement
+    this.polygondata = L.layerGroup(); // Initialize this as per your requirement
+
     this.openStreetMap_HOT = L.tileLayer(
       "https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png",
       {
@@ -535,20 +540,19 @@ class MapHandler {
 
   initializeMap() {
     this.locateUser();
-    this.addLayerToggle();
     this.map.invalidateSize();
   }
 
   initializeButtons() {
+    this.initializeLayers();
     this.addLocationButton();
     this.addWeatherButton();
-    this.routeButton = this.addRouteButton(); // Store the route button
-    this.routeButton.disable(); // Disable the route button initially
     this.geoNamesAPI.addCitiesAndAirportsButton(this.map);
     this.addLandmarkButton();
     this.addUniversityButton();
     this.addClearMarkersButton();
-    this.addMapStyleToggleButton();
+    this.routeButton = this.addRouteButton(); // Store the route button
+    this.routeButton.disable(); // Disable the route button initially
   }
 
   initializeEventHandlers() {
@@ -594,77 +598,6 @@ class MapHandler {
     this.updateRouteButtonState(); // Add this line
   }
 
-  toggleMapStyle() {
-    if (this.map.hasLayer(this.standardLayer)) {
-      this.map.removeLayer(this.standardLayer);
-      this.openStreetMap_HOT.addTo(this.map);
-    } else if (this.map.hasLayer(this.openStreetMap_HOT)) {
-      this.map.removeLayer(this.openStreetMap_HOT);
-      this.thunderforestTransportDark.addTo(this.map);
-    } else if (this.map.hasLayer(this.thunderforestTransportDark)) {
-      this.map.removeLayer(this.thunderforestTransportDark);
-      this.thunderforestSpinalMap.addTo(this.map);
-    } else if (this.map.hasLayer(this.thunderforestSpinalMap)) {
-      this.map.removeLayer(this.thunderforestSpinalMap);
-      this.openTopoMap.addTo(this.map);
-    } else {
-      this.map.removeLayer(this.openTopoMap);
-      this.standardLayer.addTo(this.map);
-    }
-  }
-
-  addMapStyleToggleButton() {
-    L.easyButton({
-      states: [
-        {
-          stateName: "standard",
-          icon: "fas fa-map", // Font Awesome icon
-          title: "Standard Map",
-          onClick: (btn, map) => {
-            this.toggleMapStyle();
-            btn.state("hot");
-          },
-        },
-        {
-          stateName: "hot",
-          icon: "fas fa-fire", // Font Awesome icon
-          title: "Hot Map",
-          onClick: (btn, map) => {
-            this.toggleMapStyle();
-            btn.state("transport-dark");
-          },
-        },
-        {
-          stateName: "transport-dark",
-          icon: "fas fa-bus", // Font Awesome icon
-          title: "Transport Dark Map",
-          onClick: (btn, map) => {
-            this.toggleMapStyle();
-            btn.state("spinal");
-          },
-        },
-        {
-          stateName: "spinal",
-          icon: "fas fa-road", // Font Awesome icon
-          title: "Spinal Map",
-          onClick: (btn, map) => {
-            this.toggleMapStyle();
-            btn.state("topo");
-          },
-        },
-        {
-          stateName: "topo",
-          icon: "fas fa-mountain", // Font Awesome icon
-          title: "Topo Map",
-          onClick: (btn, map) => {
-            this.toggleMapStyle();
-            btn.state("standard");
-          },
-        },
-      ],
-    }).addTo(this.map);
-  }
-
   // Method to clear all markers
   clearMarkers() {
     this.isAnimationRunning = false; // Stop any ongoing animations
@@ -700,6 +633,10 @@ class MapHandler {
     const waypoints = this.markers.map((marker) =>
       L.latLng(marker.getLatLng())
     );
+    if (this.routingControl) {
+      this.map.removeControl(this.routingControl);
+      this.routingControl = null;
+    }
 
     if (this.isAnimationRunning) {
       // Show a popup from the car icon
@@ -781,6 +718,69 @@ class MapHandler {
         setTimeout(moveCar, 5); // Move every 1 second
       }
     };
+  }
+
+  initializeLayers() {
+    // CartoDB DarkMatter Layer
+    this.CartoDB_DarkMatter = L.tileLayer(
+      "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+      {
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: "abcd",
+        maxZoom: 19,
+      }
+    );
+
+    // Google Streets Layer
+    this.googleStreets = L.tileLayer(
+      "http://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}",
+      {
+        maxZoom: 20,
+        subdomains: ["mt0", "mt1", "mt2", "mt3"],
+      }
+    );
+
+    // Google Satellite Layer
+    this.googleSat = L.tileLayer(
+      "http://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
+      {
+        maxZoom: 20,
+        subdomains: ["mt0", "mt1", "mt2", "mt3"],
+      }
+    );
+
+    // Stamen Watercolor Layer
+    this.Stamen_Watercolor = L.tileLayer(
+      "https://stamen-tiles-{s}.a.ssl.fastly.net/watercolor/{z}/{x}/{y}.{ext}",
+      {
+        subdomains: "abcd",
+        minZoom: 1,
+        maxZoom: 16,
+        ext: "jpg",
+      }
+    );
+
+    // Base Layers for Layer Control
+    this.baseLayers = {
+      Satellite: this.googleSat,
+      "Google Streets": this.googleStreets,
+      Watercolor: this.Stamen_Watercolor,
+      "Dark Matter": this.CartoDB_DarkMatter,
+      "Standard Map": this.standardLayer,
+      "Hot Map": this.openStreetMap_HOT,
+      "Transport Dark Map": this.thunderforestTransportDark,
+      "Spinal Map": this.thunderforestSpinalMap,
+      "Topo Map": this.openTopoMap,
+    };
+
+    // Overlay Layers for Layer Control
+    this.overlays = {
+      Marker: this.singleMarker,
+    };
+
+    // Add Layer Control to the map
+    L.control.layers(this.baseLayers, this.overlays).addTo(this.map);
   }
 
   // Function to fetch and display country border
@@ -881,41 +881,13 @@ class MapHandler {
     this.map.locate({ setView: true, maxZoom: 6 });
   }
 
-  addLayerToggle() {
-    L.easyButton({
-      states: [
-        {
-          stateName: "show-satellite",
-          icon: '<img src="earth.gif" width="20" height="20">',
-          title: "Show Satellite Map",
-          onClick: function (btn, map) {
-            map.removeLayer(this.standardLayer);
-            map.addLayer(this.satelliteLayer);
-            btn.state("show-standard");
-            fetchCitiesAndAirports;
-          }.bind(this),
-        },
-        {
-          stateName: "show-standard",
-          icon: '<img src="map.gif" width="20" height="20">',
-          title: "Show Standard Map",
-          onClick: function (btn, map) {
-            map.removeLayer(this.satelliteLayer);
-            map.addLayer(this.standardLayer);
-            btn.state("show-satellite");
-          }.bind(this),
-        },
-      ],
-    }).addTo(this.map);
-  }
-
   addLocationButton() {
     L.easyButton({
       states: [
         {
           stateName: "show-location",
           icon: '<img src="located.gif" width="20" height="20">', // Use your location image
-          title: "Show Current Location",
+          title: "Zoom to current location",
           onClick: (btn, map) => {
             if (this.userLocation) {
               this.map.flyTo(this.userLocation, 18);
@@ -1036,10 +1008,21 @@ class MapHandler {
 
   onLocationFound(e) {
     this.userLocation = e.latlng;
-    this.userLocationMarker = L.marker(e.latlng)
-      .addTo(this.map)
-      .bindPopup("You are here")
-      .openPopup();
+
+    // Remove existing user location marker if it exists
+    if (this.userLocationMarker) {
+      this.map.removeLayer(this.userLocationMarker);
+    }
+
+    // Initialize or update the singleMarker to the user's location
+    if (this.singleMarker) {
+      this.singleMarker.setLatLng(this.userLocation);
+    } else {
+      this.singleMarker = L.marker(this.userLocation).addTo(this.map);
+    }
+
+    // Optionally, you can also set a popup
+    this.singleMarker.bindPopup("You are here").openPopup();
   }
 }
 
@@ -1048,37 +1031,22 @@ class MapHandler {
   document.addEventListener("DOMContentLoaded", function () {
     const mapHandler = new MapHandler("mapid");
 
-    // On page load, fetch continents and populate the dropdown
+    // Step 2: On page load, fetch countries and populate the dropdown
     $(document).ready(function () {
       $.ajax({
-        url: "./php/fetch_continents.php",
+        url: "./php/fetch_countries.php", // Make sure this endpoint returns all countries
         type: "GET",
         dataType: "json",
         success: function (data) {
-          let options =
-            '<option value="" disabled selected>Select Continent</option>';
-          data.forEach(function (continent) {
-            options += `<option value="${continent}">${continent}</option>`;
-          });
-          $("#continent-select").html(options);
-        },
-      });
-    });
+          // Sort countries alphabetically by their common name
+          data.sort((a, b) => a.name.common.localeCompare(b.name.common));
 
-    // Add event listener to continents dropdown
-    $("#continent-select").change(function () {
-      const selectedContinent = $(this).val();
-      $.ajax({
-        url: "./php/fetch_countries.php",
-        type: "GET",
-        data: { continent: selectedContinent },
-        dataType: "json",
-        success: function (data) {
           let options =
             '<option value="" disabled selected>Select Country</option>';
           data.forEach(function (country) {
             options += `<option value="${country.cca3}">${country.name.common}</option>`;
           });
+
           $("#country-select").html(options);
           $("#country-select").prop("disabled", false);
         },
@@ -1107,7 +1075,7 @@ class MapHandler {
       $.ajax({
         url: "php/fetch_location.php",
         type: "GET",
-        data: { query: selectedCountryAlpha3Code },
+        data: { query: selectedCountryAlpha3Code, exact: true }, // Exact match
         dataType: "json",
         success: function (receivedData) {
           console.log("Received Data: ", receivedData);
@@ -1129,7 +1097,7 @@ class MapHandler {
           console.log("Wikidata ID: ", wikidata);
 
           // Center the map on the selected country's coordinates
-          mapHandler.map.setView([lat, lng], 7); // Adjust the zoom level as needed
+          mapHandler.map.setView([lat, lng], 5); // Adjust the zoom level as needed
 
           // Create a marker and add it to the map
           marker = L.marker([lat, lng]).addTo(mapHandler.map);
