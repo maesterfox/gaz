@@ -53,25 +53,6 @@
     
     
     <div id="preloader"></div>
-
-
-    <!-- Return to My Location modal -->
-    <div class="modal fade" id="returnModal" tabindex="-1" role="dialog">
-      <div class="modal-dialog custom-navy-bg"> <!-- Add the custom-navy-bg class here -->
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">Return to My Location</h5>
-          </div>
-          <div class="modal-body">
-            <p>Would you like to return to your current location?</p>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-            <button type="button" class="btn btn-primary" id="returnBtn">Yes</button>
-          </div>
-        </div>
-      </div>
-    </div>
     
   <!-- Wikipedia Modal -->
 <div class="modal fade" id="wikipedia-modal" tabindex="-1" aria-labelledby="wikipediaModalLabel" aria-hidden="true">
@@ -91,6 +72,77 @@
     </div>
   </div>
 </div>
+
+<!-- Country Information Modal -->
+<div class="modal fade" id="country-info-modal" tabindex="-1" aria-labelledby="countryInfoModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <!-- Added the custom-navy-bg class -->
+    <div class="modal-content custom-navy-bg">
+      <div class="modal-header">
+        <h5 class="modal-title" id="countryInfoModalLabel">Country Information</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div id="country-title"></div>
+        <div id="country-description"></div>
+        <div id="country-population"></div>
+        <div id="country-flag"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Exchange -->
+<div class="modal fade" id="exchangeModalScrollable" tabindex="-1" role="dialog" aria-labelledby="exchangeModalScrollableTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable bg-transparent" role="document">
+    <div class="modal-content custom-navy-bg"> <!-- Added custom-navy-bg class here -->
+      <div class="modal-header">
+        <h4 class="modal-title text-white col-10" id="exchangeModalScrollableTitle" data-bs-dismiss="modal">
+          Currency converter
+            </div>
+            <div class="modal-body" id="page4">
+                <div class="row infoPanel p-0 m-0" aria-labelledby="headingFour">
+                    <table class="table table-default text-white table-hover col-12 m-0">
+                        <thead>
+                        <tr>
+                            <th class="col-6">Amount:</th>
+                            <th class="col-6"><input type="number" id="exchangeInput" class="form-control-sm" value="10" placeholder="0">
+                            </th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr>
+                            <td>From:</td>
+                            <td><select id="fromCurrency" class="row form-select-sm"></select></td>
+                        </tr>
+                        <tr>
+                            <td>To:</td>
+                            <td><select id="toCurrency" class="row form-select-sm"></select></td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <button class="row btn text-white" id="exchangeBtn">Exchange</button>
+                            </td>
+                            <td><h5 class="row" id="exchangeResult"></h5></td>
+                        </tr>
+                        </tbody>
+                        <tfoot>
+                        <tr>
+                            <td>Exchange date:</td>
+                            <td id="exchangeDate"></td>
+                        </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+            <button type="button" class="btn btn-secondary modalClose" data-dismiss="modal">Close</button>
+
+        </div>
+    </div>
+</div>
+
       
 
       <div id="easy-button-container" class="leaflet-top leaflet-right"></div>
