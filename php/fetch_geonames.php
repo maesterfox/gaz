@@ -46,10 +46,24 @@ function fetchGeoNamesData($featureCode, $countryCode, $maxRows)
     return $data;
 }
 
+// Allow cross-origin requests
+header("Access-Control-Allow-Origin: *");
+header("Content-Type: application/json; charset=UTF-8");
+
 // Fetch data based on feature codes and country codes
 $countryCode = $_GET['countryCode'] ?? ''; // Replace with the actual country code
 $featureCode = $_GET['featureCode'] ?? ''; // Replace with the actual feature code
 $maxRows = $_GET['maxRows'] ?? 50; // Replace with the actual max rows
+
+// Check if latitude and longitude are provided
+$latitude = $_GET['lat'] ?? null;
+$longitude = $_GET['lng'] ?? null;
+
+if ($latitude !== null && $longitude !== null) {
+    $countryData = fetchCountryCode($latitude, $longitude);
+    echo json_encode($countryData);
+    exit();
+}
 
 $fetchedData = fetchGeoNamesData($featureCode, $countryCode, $maxRows);
 

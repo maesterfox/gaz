@@ -269,6 +269,8 @@ class MapHandler {
   }
 
   init() {
+    console.log("Init function called");
+
     this.initializeMap();
     this.initializeLayers();
     this.initializeButtons();
@@ -549,14 +551,29 @@ class MapHandler {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
-        this.map.setView([latitude, longitude], 8);
+        this.map.setView([latitude, longitude], 6);
 
         // Create and set the singleMarker
         this.singleMarker = L.marker([latitude, longitude]).addTo(this.map);
         this.singleMarker.bindPopup("You are here").openPopup();
 
-        // Update the layer control to reflect the new marker
-        this.initializeOrUpdateLayerControl();
+        // Fetch the country code based on the user's latitude and longitude
+        $.ajax({
+          url: `php/fetch_geonames.php?lat=${latitude}&lng=${longitude}`,
+          type: "GET",
+          dataType: "json",
+          success: (data) => {
+            console.log(data);
+            const { countryCode, countryName } = data;
+            if (countryName) {
+              // Use the countryName to fetch and display the border
+              this.fetchAndDisplayCountryBorder(null, countryName);
+            }
+          },
+          error: (error) => {
+            console.error("Could not fetch country code:", error);
+          },
+        });
       },
       (error) => {
         console.error("Could not fetch user location:", error);
@@ -565,9 +582,14 @@ class MapHandler {
   }
 
   // Function to fetch and display country border
-  fetchAndDisplayCountryBorder(countryCode) {
-    if (!countryCode) {
-      console.error("Invalid country code");
+  fetchAndDisplayCountryBorder(countryCode, countryName) {
+    console.log(countryCode, countryName);
+
+    // Prioritize using countryName if available
+    const countryIdentifier = countryName || countryCode;
+
+    if (!countryIdentifier) {
+      console.error("Invalid country identifier");
       return;
     }
 
@@ -575,9 +597,12 @@ class MapHandler {
     $.ajax({
       url: `./php/fetch_country_border.php`, // Adjust the URL as needed
       type: "GET",
-      data: { countryCode: countryCode }, // Pass countryCode as a parameter
+      data: { countryCode: countryCode, countryName: countryName },
       dataType: "json",
       success: (result) => {
+        console.log(countryIdentifier);
+        console.log("Server response:", result);
+
         // Check if the result has the expected structure
         if (result && result.properties && result.geometry) {
           // Remove existing border if any
@@ -688,6 +713,8 @@ class MapHandler {
 
 // Declare wikidata at a broader scope
 let wikidata;
+// Declare currentCountryInfo at a broader scope
+let currentCountryInfo = {};
 
 (function () {
   // Initialize
@@ -796,7 +823,13 @@ let wikidata;
                 `<img src="${flag}" alt="Flag of ${entity.labels.en.value}" width="100">`
               );
 
-              $("#country-info-modal").modal("show");
+              // Update currentCountryInfo
+              currentCountryInfo = {
+                title: entity.labels.en.value,
+                description: description,
+                population: population,
+                flag: flag,
+              };
             },
           });
         },
@@ -816,23 +849,26 @@ let wikidata;
         {
           stateName: "show-info",
           onClick: function (button, map) {
-            $("#wikipedia-modal").modal("show");
+            // Populate the modal using currentCountryInfo
+            $("#countryInfoModalLabel").text(currentCountryInfo.title);
+            $("#country-title").html(`<h3>${currentCountryInfo.title}</h3>`);
+            $("#country-description").html(
+              `<p>Description: ${currentCountryInfo.description}</p>`
+            );
+            $("#country-population").html(
+              `<p>Population: ${currentCountryInfo.population}</p>`
+            );
+            $("#country-flag").html(
+              `<img src="${currentCountryInfo.flag}" alt="Flag of ${currentCountryInfo.title}" width="100">`
+            );
+            $("#country-info-modal").modal("show");
           },
           title: "Show country info",
           icon: "fa-info",
         },
-        {
-          stateName: "hide-info",
-          onClick: function (button, map) {
-            $("#wikipedia-modal").modal("hide");
-          },
-          title: "Hide country info",
-          icon: "fa-info-circle",
-        },
       ],
     });
     infoButton.addTo(mapHandler.map);
-
     // Bootstrap modal events to toggle the easyButton state
     $("#wikipedia-modal").on("shown.bs.modal", function () {
       infoButton.state("hide-info");
@@ -879,6 +915,9 @@ let wikidata;
         updateConversion();
       });
     });
+
+    let fromCurrency = "";
+    let toCurrency = "";
 
     // Populate currencies
     function populateCurrencies() {
