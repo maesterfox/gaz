@@ -1,6 +1,3 @@
-let currencies = {};
-var userLocationMarker = null;
-
 // Preloader
 $(window).on("load", function () {
   console.log("Window loaded"); // Debugging log
@@ -202,15 +199,19 @@ class GeoNamesAPI extends APIHandler {
     marker.on("click", callback);
   }
 }
+
+let currencies = {};
+let userLocationMarker = null;
+
 // MapHandler Class
 class MapHandler {
   constructor(mapId) {
     this.map = L.map(mapId);
-    this.map.setView([51.505, -0.09], 8);
     this.userLocation = null;
-    this.countryBorder = null; // Add this line to store the country's border
+    this.countryBorder = null;
     this.userLocationMarker = null;
-    this.currentCountryName = null; // New property
+    this.currentCountryName = null;
+    this.singleMarker = null; // Initialize to null
     this.routingControl = null; // Add this line
     this.currentAnimationIndex = 0; // Initialize to 0
     this.carMarker = null; // Add this line to store the car marker
@@ -269,18 +270,18 @@ class MapHandler {
 
   init() {
     this.initializeMap();
+    this.initializeLayers();
     this.initializeButtons();
     this.initializeEventHandlers();
+    this.fetchAndSetUserLocation();
   }
 
   initializeMap() {
-    this.locateUser();
     this.map.invalidateSize();
   }
 
   initializeButtons() {
     this.initializeLayers();
-    this.addLocationButton();
     this.addWeatherButton();
     this.addClearMarkersButton();
     this.routeButton = this.addRouteButton(); // Store the route button
@@ -310,6 +311,25 @@ class MapHandler {
         this.carMarker.setIcon(carIconStandard);
       }
     }
+  }
+
+  onLocationFound(e) {
+    this.userLocation = e.latlng;
+
+    // Remove existing user location marker if it exists
+    if (this.userLocationMarker) {
+      this.map.removeLayer(this.userLocationMarker);
+    }
+
+    // Initialize or update the singleMarker to the user's location
+    if (this.singleMarker) {
+      this.singleMarker.setLatLng(this.userLocation);
+    } else {
+      this.singleMarker = L.marker(this.userLocation).addTo(this.map);
+    }
+
+    // Optionally, you can also set a popup
+    this.singleMarker.bindPopup("You are here").openPopup();
   }
 
   handleMapClick(e) {
@@ -505,14 +525,43 @@ class MapHandler {
       "Spinal Map": this.thunderforestSpinalMap,
       "Topo Map": this.openTopoMap,
     };
+    this.initializeOrUpdateLayerControl();
+  }
 
-    // Overlay Layers for Layer Control
+  initializeOrUpdateLayerControl() {
+    // Remove the existing layer control if it exists
+    if (this.layerControl) {
+      this.layerControl.remove();
+    }
+
+    // Update the overlays
     this.overlays = {
-      Marker: this.singleMarker,
+      Marker: this.singleMarker || new L.LayerGroup(), // Use an empty LayerGroup if singleMarker is null
     };
 
-    // Add Layer Control to the map
-    L.control.layers(this.baseLayers, this.overlays).addTo(this.map);
+    // Add a new layer control
+    this.layerControl = L.control
+      .layers(this.baseLayers, this.overlays)
+      .addTo(this.map);
+  }
+
+  fetchAndSetUserLocation() {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        this.map.setView([latitude, longitude], 8);
+
+        // Create and set the singleMarker
+        this.singleMarker = L.marker([latitude, longitude]).addTo(this.map);
+        this.singleMarker.bindPopup("You are here").openPopup();
+
+        // Update the layer control to reflect the new marker
+        this.initializeOrUpdateLayerControl();
+      },
+      (error) => {
+        console.error("Could not fetch user location:", error);
+      }
+    );
   }
 
   // Function to fetch and display country border
@@ -593,56 +642,6 @@ class MapHandler {
     }).addTo(this.map);
   }
 
-  updateMap(latlng) {
-    // Remove existing marker if any
-    if (this.userLocationMarker) {
-      this.map.removeLayer(this.userLocationMarker);
-    }
-
-    // Update the map view
-    this.map.setView(latlng, 10);
-
-    // Add a new marker
-    this.userLocationMarker = L.marker(latlng)
-      .addTo(this.map)
-      .bindPopup("Selected Location")
-      .openPopup();
-  }
-
-  locateUser() {
-    this.map.locate({ setView: true, maxZoom: 6 });
-  }
-
-  addLocationButton() {
-    L.easyButton({
-      states: [
-        {
-          stateName: "toggle-location",
-          icon: '<img src="located.gif" width="20" height="20">', // Use your location image
-          title: "Toggle current location marker",
-          onClick: (btn, map) => {
-            if (this.userLocation) {
-              // Check if marker already exists
-              if (userLocationMarker) {
-                // Remove existing marker
-                this.map.removeLayer(userLocationMarker);
-                userLocationMarker = null;
-              } else {
-                // Create new marker
-                userLocationMarker = L.marker(this.userLocation)
-                  .addTo(this.map)
-                  .bindPopup("You are here.")
-                  .openPopup();
-              }
-            } else {
-              console.log("User location is not available");
-            }
-          },
-        },
-      ],
-    }).addTo(this.map);
-  }
-
   addWeatherButton() {
     L.easyButton({
       states: [
@@ -684,25 +683,6 @@ class MapHandler {
       ],
     }).addTo(this.map);
     return routeButton;
-  }
-
-  onLocationFound(e) {
-    this.userLocation = e.latlng;
-
-    // Remove existing user location marker if it exists
-    if (this.userLocationMarker) {
-      this.map.removeLayer(this.userLocationMarker);
-    }
-
-    // Initialize or update the singleMarker to the user's location
-    if (this.singleMarker) {
-      this.singleMarker.setLatLng(this.userLocation);
-    } else {
-      this.singleMarker = L.marker(this.userLocation).addTo(this.map);
-    }
-
-    // Optionally, you can also set a popup
-    this.singleMarker.bindPopup("You are here").openPopup();
   }
 }
 
@@ -827,9 +807,9 @@ let wikidata;
     });
 
     // Initialize easyButton
-    var infoButton = L.easyButton({
+    let infoButton = L.easyButton({
       id: "toggle-info-button",
-      position: "topright",
+      position: "topleft",
       type: "replace",
       leafletClasses: true,
       states: [
