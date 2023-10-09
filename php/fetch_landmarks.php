@@ -1,25 +1,31 @@
 <?php
-$apiKey = "4fe0f4e6120b4529a33583954b82b56d";
-$lat = $_GET['lat']; // Extract latitude from the query parameter
-$lng = $_GET['lng']; // Extract longitude from the query parameter
+header("Content-Type: application/json");
 
-// Use $lat and $lng for reverse geocoding
+// Capture north, east, south, west coordinates from the request
+$north = $_GET['north'];
+$east = $_GET['east'];
+$south = $_GET['south'];
+$west = $_GET['west'];
 
-$query = urlencode("$lat,$lng"); // Construct the query string
+// Build the Overpass query
+$query = "
+    [out:json];
+    (
+        node['tourism'='museum']($south,$west,$north,$east);
+        node['amenity'='place_of_worship']($south,$west,$north,$east);
+        node['natural'='peak']($south,$west,$north,$east);
+        node['historic']($south,$west,$north,$east);
+        node['tourism'='theme_park']($south,$west,$north,$east);
+    );
+    out body;
+";
 
-// Define the OpenCage API endpoint for landmarks (you may need to adjust this based on the OpenCage API documentation)
-$url = "https://api.opencagedata.com/geocode/v1/json?q=$query&key=$apiKey";
+// URL encode the query
+$encodedQuery = urlencode($query);
 
-$ch = curl_init();
-curl_setopt($ch, CURLOPT_URL, $url);
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+// Fetch the data from the Overpass API
+$url = "http://overpass-api.de/api/interpreter?data=$encodedQuery";
+$response = file_get_contents($url);
 
-$response = curl_exec($ch);
-if (curl_errno($ch)) {
-    echo 'Curl error: ' . curl_error($ch);
-}
-
-curl_close($ch);
-
-header('Content-Type: application/json');
+// Return the data as JSON
 echo $response;

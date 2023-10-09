@@ -217,7 +217,6 @@ class MapHandler {
     this.carMarker = null; // Add this line to store the car marker
     this.areMarkersActive = false; // Add this line to track if markers are active
     this.isAnimationRunning = false;
-    this.singleMarker = L.marker([51.5, -0.09]); // Initialize this as per your requirement
     this.pointdata = L.layerGroup(); // Initialize this as per your requirement
     this.linedata = L.layerGroup(); // Initialize this as per your requirement
     this.polygondata = L.layerGroup(); // Initialize this as per your requirement
@@ -319,19 +318,18 @@ class MapHandler {
     this.userLocation = e.latlng;
 
     // Remove existing user location marker if it exists
-    if (this.userLocationMarker) {
-      this.map.removeLayer(this.userLocationMarker);
+    if (this.singleMarker) {
+      this.map.removeLayer(this.singleMarker);
     }
 
     // Initialize or update the singleMarker to the user's location
-    if (this.singleMarker) {
-      this.singleMarker.setLatLng(this.userLocation);
-    } else {
-      this.singleMarker = L.marker(this.userLocation).addTo(this.map);
-    }
+    this.singleMarker = L.marker(this.userLocation).addTo(this.map);
 
     // Optionally, you can also set a popup
     this.singleMarker.bindPopup("You are here").openPopup();
+
+    // Update the layer control to reflect the new or updated marker
+    this.initializeOrUpdateLayerControl();
   }
 
   handleMapClick(e) {
@@ -538,7 +536,7 @@ class MapHandler {
 
     // Update the overlays
     this.overlays = {
-      Marker: this.singleMarker || new L.LayerGroup(), // Use an empty LayerGroup if singleMarker is null
+      "User Location": this.singleMarker || new L.LayerGroup(), // Use an empty LayerGroup if singleMarker is null
     };
 
     // Add a new layer control
@@ -556,6 +554,9 @@ class MapHandler {
         // Create and set the singleMarker
         this.singleMarker = L.marker([latitude, longitude]).addTo(this.map);
         this.singleMarker.bindPopup("You are here").openPopup();
+
+        // Update the layer control to reflect the new or updated marker
+        this.initializeOrUpdateLayerControl();
 
         // Fetch the country code based on the user's latitude and longitude
         $.ajax({
