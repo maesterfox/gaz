@@ -185,6 +185,20 @@ text-align: center;
   color: aqua;
 }
 
+.earthquake-popup {
+  background-color: navy;
+  color: white;
+  padding: 10px;
+  border-radius: 5px;
+}
+
+.magnitude {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+/* Add similar styles for other elements as needed */
+
 @media (max-width: 768px) {
   /* Adjust the max-width and height as needed for your design */
   .navbar-logo {

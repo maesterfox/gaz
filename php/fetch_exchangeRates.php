@@ -5,7 +5,7 @@ $ch = curl_init();
 
 // Set API endpoint and parameters
 $apiKey = "0017134679611fd6118d1583"; // Replace with your ExchangeRate-API key
-$baseUrl = "https://api.exchangerate-api.com/v4/latest/USD"; // Latest rates based on USD
+$baseUrl = "https://api.exchangerate-api.com/v4/latest/"; // Latest rates based on USD
 $params = "?api_key=" . $apiKey;
 
 // Set cURL options

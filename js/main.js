@@ -200,13 +200,14 @@ class GeoNamesAPI extends APIHandler {
   }
 }
 
-let currencies = {};
 let userLocationMarker = null;
 
 // MapHandler Class
 class MapHandler {
   constructor(mapId) {
     this.map = L.map(mapId);
+    this.myCircles = L.layerGroup().addTo(this.map); // Initialize myCircles layer group
+    this.quakeMapper = false; // Initialize quakeMapper flag
     this.userLocation = null;
     this.countryBorder = null;
     this.userLocationMarker = null;
@@ -287,6 +288,8 @@ class MapHandler {
     this.addClearMarkersButton();
     this.routeButton = this.addRouteButton(); // Store the route button
     this.routeButton.disable(); // Disable the route button initially
+    this.addEarthquakeDataButton();
+    this.addNewsButton(); // Initialize the news button
   }
 
   initializeEventHandlers() {
@@ -686,6 +689,167 @@ class MapHandler {
     }).addTo(this.map);
   }
 
+  plotEarthquakeData(result) {
+    if (result && result.features) {
+      if (!this.quakeMapper) {
+        for (let i = 0; i < result.features.length; i++) {
+          // Your existing code for plotting earthquake data
+        }
+        this.quakeMapper = true;
+      } else {
+        this.myCircles.eachLayer((layer) => {
+          this.myCircles.removeLayer(layer);
+        });
+        this.quakeMapper = false;
+      }
+    } else {
+      console.error("Invalid or incomplete data", result);
+    }
+  }
+
+  async fetchEarthquakeData() {
+    try {
+      const response = await fetch("php/fetch_earthquakes.php");
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      const data = await response.json();
+      console.log("Fetched Data:", data);
+      return data.earthquakeData;
+    } catch (error) {
+      console.error("Error fetching earthquake data:", error);
+      return null;
+    }
+  }
+
+  addNewsButton() {
+    L.easyButton({
+      states: [
+        {
+          stateName: "fetch-news",
+          icon: "fa-newspaper",
+          title: "Fetch News",
+          onClick: (btn, map) => {
+            // Assuming this.currentCountryName holds the country name
+            $.ajax({
+              url: `php/fetch_news.php?newsCountry=${this.currentCountryName}`,
+              type: "GET",
+              dataType: "json",
+              data: {
+                lr: "en-US", // Replace with the correct language region code
+              },
+              success: (result) => {
+                console.log(result);
+
+                // Check if the result contains the data you need
+                if (result && Array.isArray(result.items)) {
+                  let modalContent = "";
+
+                  // Iterate through the news articles and build the modal content
+                  result.items.forEach((article) => {
+                    modalContent += `
+                      <div class="news-article">
+                        <h5>${article.title}</h5>
+                        <p>${article.snippet}</p>
+                        <a href="${article.newsUrl}" target="_blank">Read more</a>
+                      </div>
+                    `;
+                  });
+
+                  // Populate the modal with the news articles
+                  document.getElementById("news-data").innerHTML = modalContent;
+
+                  // Show the modal
+                  $("#news-info-modal").modal("show");
+                } else {
+                  console.error("No news articles found.");
+                }
+              },
+              error: (jqXHR, textStatus, errorThrown) => {
+                console.log(textStatus, errorThrown);
+              },
+            });
+          },
+        },
+      ],
+    }).addTo(this.map);
+  }
+
+  addEarthquakeDataButton() {
+    L.easyButton({
+      states: [
+        {
+          stateName: "fetch-earthquake-data",
+          icon: "fa-globe",
+          title: "Fetch Earthquake Data",
+          onClick: (btn, map) => {
+            if (!this.quakeMapper) {
+              map.setZoom(3);
+              $.ajax({
+                url: "php/fetch_earthquakes.php",
+                type: "GET",
+                dataType: "json",
+                success: (result) => {
+                  console.log(result); // Debugging line
+                  if (result.earthquakeData && result.earthquakeData.features) {
+                    for (
+                      let i = 0;
+                      i < result.earthquakeData.features.length;
+                      i++
+                    ) {
+                      const quakePos =
+                        result.earthquakeData.features[i].geometry.coordinates;
+                      const mag =
+                        result.earthquakeData.features[i].properties.mag *
+                        32 *
+                        50;
+                      const locDate = new Date(
+                        result.earthquakeData.features[i].properties.time
+                      )
+                        .toISOString()
+                        .slice(0, 19)
+                        .replace("T", " / ");
+
+                      L.circle([quakePos[1], quakePos[0]], {
+                        color: "red",
+                        fillColor: "white",
+                        fillOpacity: 0.8,
+                        radius: mag,
+                        stroke: true,
+                        weight: 5,
+                      }).addTo(this.myCircles).bindPopup(`
+  <div class="earthquake-popup">
+    <h5 class="magnitude">Magnitude: ${result.earthquakeData.features[i].properties.mag} points</h5>
+    <p class="place"><strong>Place: </strong>${result.earthquakeData.features[i].properties.place}</p>
+    <p class="type"><strong>Type: </strong>${result.earthquakeData.features[i].properties.type}</p>
+    <p class="unix-time"><strong>Unix Time: </strong>${result.earthquakeData.features[i].properties.time}</p>
+    <p class="local-date-time"><strong>Local Date / Time: </strong>${locDate}</p>
+  </div>
+`);
+                    }
+                    this.quakeMapper = true;
+                  } else {
+                    console.error(
+                      "No earthquakeData or features found in the result."
+                    );
+                  }
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                  console.log(textStatus, errorThrown);
+                },
+              });
+            } else {
+              this.myCircles.eachLayer((layer) => {
+                this.myCircles.removeLayer(layer);
+              });
+              this.quakeMapper = false;
+            }
+          },
+        },
+      ],
+    }).addTo(this.map);
+  }
+
   addRouteButton() {
     const routeButton = L.easyButton({
       states: [
@@ -738,6 +902,7 @@ let currentCountryInfo = {};
           $("#country-select").html(options);
           $("#country-select").prop("disabled", false);
         },
+
         error: function (error) {
           console.error("Error fetching country data: ", error);
         },
@@ -773,6 +938,8 @@ let currentCountryInfo = {};
             console.error("No matching country found");
             return;
           }
+          infoButton.enable();
+
           const [lng, lat] = countryFeature.geometry.coordinates;
           wikidata = countryFeature.properties.wikidata;
           mapHandler.map.setView([lat, lng], 5);
@@ -870,6 +1037,8 @@ let currentCountryInfo = {};
       ],
     });
     infoButton.addTo(mapHandler.map);
+    infoButton.disable(); // Disable the button initially
+
     // Bootstrap modal events to toggle the easyButton state
     $("#wikipedia-modal").on("shown.bs.modal", function () {
       infoButton.state("hide-info");
@@ -882,98 +1051,6 @@ let currentCountryInfo = {};
     $("#wikipedia-modal").on("hidden.bs.modal", function () {
       infoButton.state("show-info");
     });
-
-    // Initialize easyButton for currency exchange
-    let exchangeButton = L.easyButton({
-      id: "exchangeLeaf",
-      position: "topleft",
-      type: "animate",
-      leafletClasses: true,
-      states: [
-        {
-          stateName: "show-exchange",
-          onClick: function (button, map) {
-            $("#exchangeModalScrollable").modal("show");
-          },
-          title: "Show exchange rates",
-          icon: "fas fa-pound-sign",
-        },
-      ],
-    });
-    exchangeButton.addTo(mapHandler.map);
-
-    $(document).ready(function () {
-      // Populate currencies
-      populateCurrencies();
-
-      // Event listeners for currency exchange
-      $("#fromCurrency, #toCurrency, #exchangeInput").change(function () {
-        updateConversion();
-      });
-
-      // Trigger conversion when 'Exchange' button is clicked
-      $("#exchangeBtn").click(function () {
-        updateConversion();
-      });
-    });
-
-    let fromCurrency = "";
-    let toCurrency = "";
-
-    // Populate currencies
-    function populateCurrencies() {
-      $.ajax({
-        url: "./php/fetch_exchangeRates.php",
-        type: "GET",
-        dataType: "json",
-        success: function (result) {
-          if (result.status.name === "ok") {
-            currenciesKeys = Object.keys(result["data"]["rates"]);
-            currencies = result["data"]["rates"];
-            $("#select").empty();
-            for (let i = 0; i < currenciesKeys.length; i++) {
-              $("#fromCurrency").append(
-                '<option value="' +
-                  currenciesKeys[i] +
-                  '">' +
-                  currenciesKeys[i] +
-                  "</option>"
-              );
-              $("#toCurrency").append(
-                '<option value="' +
-                  currenciesKeys[i] +
-                  '">' +
-                  currenciesKeys[i] +
-                  "</option>"
-              );
-              $("#exchangeDate").html(
-                new Date(result["data"]["date"]).toISOString().slice(0, 10)
-              );
-            }
-            $("#toCurrency").val("USD").change();
-          }
-        },
-        error: function (jqXHR, textStatus, errorThrown) {
-          // Handle errors here
-        },
-      });
-    }
-
-    // Update currency conversion
-    function updateConversion() {
-      let to = $("#toCurrency option:selected").val();
-      let from = $("#fromCurrency option:selected").val();
-      let value = parseInt($("#exchangeInput").val());
-
-      if (from === to) $("#exchangeResult").html(value);
-      else
-        $("#exchangeResult").html(
-          (
-            value *
-            (parseFloat(currencies[to]) / parseFloat(currencies[from]))
-          ).toFixed(2)
-        );
-    }
 
     // current zoom
     mapHandler.map.on("zoomend", function () {
