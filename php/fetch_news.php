@@ -1,21 +1,19 @@
 <?php
-$country = isset($_REQUEST['newsCountry']) ? $_REQUEST['newsCountry'] : 'us'; // Default to 'us' if not provided
+$country = isset($_REQUEST['newsCountry']) ? $_REQUEST['newsCountry'] : 'GB';
+$apiKey = "6d8059df68a94d09afe51afa601dd369";
 
 $curl = curl_init();
 
-curl_setopt_array($curl, [
-    CURLOPT_URL => "https://google-news13.p.rapidapi.com/world?lr=en-US&country=$country", // Include the 'country' parameter
+curl_setopt_array($curl, array(
+    CURLOPT_URL => "https://newsapi.org/v2/everything?q=" . $country . "&apiKey=" . $apiKey,
     CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_USERAGENT => 'YourApplicationName/1.0',  // Add this line to set the User-Agent
     CURLOPT_ENCODING => "",
     CURLOPT_MAXREDIRS => 10,
     CURLOPT_TIMEOUT => 30,
     CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
     CURLOPT_CUSTOMREQUEST => "GET",
-    CURLOPT_HTTPHEADER => [
-        "X-RapidAPI-Host: google-news13.p.rapidapi.com",
-        "X-RapidAPI-Key: a18908fbc2msh4465e8c94fa4888p1aeed5jsn97d8dc3e9b41"
-    ],
-]);
+));
 
 $response = curl_exec($curl);
 $err = curl_error($curl);

@@ -186,7 +186,7 @@ text-align: center;
 }
 
 .earthquake-popup {
-  background-color: navy;
+  background-color: rgb(5, 5, 51);
   color: white;
   padding: 10px;
   border-radius: 5px;

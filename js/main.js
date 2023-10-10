@@ -206,7 +206,9 @@ let userLocationMarker = null;
 class MapHandler {
   constructor(mapId) {
     this.map = L.map(mapId);
-    this.myCircles = L.layerGroup().addTo(this.map); // Initialize myCircles layer group
+    this.myCircles = L.layerGroup(); // Not added to map
+    this.nuclearExplosions = L.layerGroup(); // Not added to map
+    this.nuclearExplosions.addTo(this.map);
     this.quakeMapper = false; // Initialize quakeMapper flag
     this.userLocation = null;
     this.countryBorder = null;
@@ -276,6 +278,88 @@ class MapHandler {
     this.initializeButtons();
     this.initializeEventHandlers();
     this.fetchAndSetUserLocation();
+
+    this.map.on("overlayadd", (event) => {
+      console.log("overlayadd event fired");
+      if (event.layer === this.myCircles && !this.earthquakeToggle) {
+      }
+    });
+  }
+
+  initEarthquakeCheckbox() {
+    let layerControlContainer = this.layerControl._container;
+
+    // Create new checkbox
+    this.earthquakeToggle = document.createElement("input");
+    this.earthquakeToggle.type = "checkbox";
+    this.earthquakeToggle.id = "earthquakeToggle";
+    this.earthquakeToggle.checked = false;
+
+    // Append to container
+    layerControlContainer.appendChild(this.earthquakeToggle);
+
+    // Attach the event listener
+    this.handleEarthquakeToggle = this.handleEarthquakeToggle.bind(this);
+    this.earthquakeToggle.addEventListener(
+      "change",
+      this.handleEarthquakeToggle
+    );
+  }
+
+  handleEarthquakeToggle(event) {
+    if (event.target.checked) {
+      this.map.setZoom(3);
+      $.ajax({
+        url: "php/fetch_earthquakes.php",
+        type: "GET",
+        dataType: "json",
+        success: (result) => {
+          console.log(result); // Debugging line
+          if (result.earthquakeData && result.earthquakeData.features) {
+            for (let i = 0; i < result.earthquakeData.features.length; i++) {
+              const quakePos =
+                result.earthquakeData.features[i].geometry.coordinates;
+              const mag =
+                result.earthquakeData.features[i].properties.mag * 32 * 50;
+              const locDate = new Date(
+                result.earthquakeData.features[i].properties.time
+              )
+                .toISOString()
+                .slice(0, 19)
+                .replace("T", " / ");
+
+              L.circle([quakePos[1], quakePos[0]], {
+                color: "red",
+                fillColor: "white",
+                fillOpacity: 0.7,
+                radius: mag,
+                stroke: true,
+                weight: 3,
+              }).addTo(this.myCircles).bindPopup(`
+                  <div class="earthquake-popup">
+                    <h5 class="magnitude">Magnitude: ${result.earthquakeData.features[i].properties.mag} points</h5>
+                    <p class="place"><strong>Place: </strong>${result.earthquakeData.features[i].properties.place}</p>
+                    <p class="type"><strong>Type: </strong>${result.earthquakeData.features[i].properties.type}</p>
+                    <p class="unix-time"><strong>Unix Time: </strong>${result.earthquakeData.features[i].properties.time}</p>
+                    <p class="local-date-time"><strong>Local Date / Time: </strong>${locDate}</p>
+                  </div>
+                `);
+            }
+            this.quakeMapper = true;
+          } else {
+            console.error("No earthquakeData or features found in the result.");
+          }
+        },
+        error: function (jqXHR, textStatus, errorThrown) {
+          console.log(textStatus, errorThrown);
+        },
+      });
+    } else {
+      this.myCircles.eachLayer((layer) => {
+        this.myCircles.removeLayer(layer);
+      });
+      this.quakeMapper = false;
+    }
   }
 
   initializeMap() {
@@ -288,12 +372,14 @@ class MapHandler {
     this.addClearMarkersButton();
     this.routeButton = this.addRouteButton(); // Store the route button
     this.routeButton.disable(); // Disable the route button initially
-    this.addEarthquakeDataButton();
     this.addNewsButton(); // Initialize the news button
+    this.addNuclearButton(); // Add this line
+    this.addEarthquakeButton(); // Initialize the earthquake button
+
+    this.addUserLocationButton(); // Add this line
   }
 
   initializeEventHandlers() {
-    this.map.on("locationfound", this.onLocationFound.bind(this));
     this.map.on("click", this.handleMapClick.bind(this));
     this.updateRouteButtonState();
     this.map.on("baselayerchange", this.updateCarIcon.bind(this));
@@ -315,24 +401,6 @@ class MapHandler {
         this.carMarker.setIcon(carIconStandard);
       }
     }
-  }
-
-  onLocationFound(e) {
-    this.userLocation = e.latlng;
-
-    // Remove existing user location marker if it exists
-    if (this.singleMarker) {
-      this.map.removeLayer(this.singleMarker);
-    }
-
-    // Initialize or update the singleMarker to the user's location
-    this.singleMarker = L.marker(this.userLocation).addTo(this.map);
-
-    // Optionally, you can also set a popup
-    this.singleMarker.bindPopup("You are here").openPopup();
-
-    // Update the layer control to reflect the new or updated marker
-    this.initializeOrUpdateLayerControl();
   }
 
   handleMapClick(e) {
@@ -532,20 +600,23 @@ class MapHandler {
   }
 
   initializeOrUpdateLayerControl() {
-    // Remove the existing layer control if it exists
-    if (this.layerControl) {
-      this.layerControl.remove();
+    if (!this.layerControl) {
+      // Define overlays
+      this.overlays = {
+        "Earthquake Data": this.myCircles || new L.LayerGroup(),
+      };
+
+      // Add a new layer control
+      this.layerControl = L.control
+        .layers(this.baseLayers, this.overlays, { collapsed: true }) // Set to true to make it collapsed by default
+        .addTo(this.map);
     }
 
-    // Update the overlays
-    this.overlays = {
-      "User Location": this.singleMarker || new L.LayerGroup(), // Use an empty LayerGroup if singleMarker is null
-    };
+    // Fetch layer control container
+    let layerControlContainer = this.layerControl._container;
 
-    // Add a new layer control
-    this.layerControl = L.control
-      .layers(this.baseLayers, this.overlays)
-      .addTo(this.map);
+    // Configuration for the observer
+    const config = { attributes: true, childList: true, subtree: true };
   }
 
   fetchAndSetUserLocation() {
@@ -557,9 +628,6 @@ class MapHandler {
         // Create and set the singleMarker
         this.singleMarker = L.marker([latitude, longitude]).addTo(this.map);
         this.singleMarker.bindPopup("You are here").openPopup();
-
-        // Update the layer control to reflect the new or updated marker
-        this.initializeOrUpdateLayerControl();
 
         // Fetch the country code based on the user's latitude and longitude
         $.ajax({
@@ -671,6 +739,49 @@ class MapHandler {
     }).addTo(this.map);
   }
 
+  // Add this method to your MapHandler class
+  addEarthquakeButton() {
+    L.easyButton({
+      states: [
+        {
+          stateName: "show-earthquakes",
+          icon: "fa-globe",
+          title: "Show Earthquakes",
+          onClick: (btn, map) => {
+            // Logic to fetch and display earthquake data goes here
+            this.handleEarthquakeToggle({ target: { checked: true } });
+            btn.state("hide-earthquakes");
+          },
+        },
+        {
+          stateName: "hide-earthquakes",
+          icon: "fa-globe",
+          title: "Hide Earthquakes",
+          onClick: (btn, map) => {
+            // Logic to remove earthquake data goes here
+            this.handleEarthquakeToggle({ target: { checked: false } });
+            btn.state("show-earthquakes");
+          },
+        },
+      ],
+    }).addTo(this.map);
+  }
+
+  addUserLocationButton() {
+    L.easyButton({
+      states: [
+        {
+          stateName: "get-user-location",
+          icon: "fa-location-arrow",
+          title: "Find Me",
+          onClick: (btn, map) => {
+            this.fetchAndSetUserLocation(); // This method is already in your code
+          },
+        },
+      ],
+    }).addTo(this.map);
+  }
+
   addWeatherButton() {
     L.easyButton({
       states: [
@@ -689,39 +800,6 @@ class MapHandler {
     }).addTo(this.map);
   }
 
-  plotEarthquakeData(result) {
-    if (result && result.features) {
-      if (!this.quakeMapper) {
-        for (let i = 0; i < result.features.length; i++) {
-          // Your existing code for plotting earthquake data
-        }
-        this.quakeMapper = true;
-      } else {
-        this.myCircles.eachLayer((layer) => {
-          this.myCircles.removeLayer(layer);
-        });
-        this.quakeMapper = false;
-      }
-    } else {
-      console.error("Invalid or incomplete data", result);
-    }
-  }
-
-  async fetchEarthquakeData() {
-    try {
-      const response = await fetch("php/fetch_earthquakes.php");
-      if (!response.ok) {
-        throw new Error("Network response was not ok");
-      }
-      const data = await response.json();
-      console.log("Fetched Data:", data);
-      return data.earthquakeData;
-    } catch (error) {
-      console.error("Error fetching earthquake data:", error);
-      return null;
-    }
-  }
-
   addNewsButton() {
     L.easyButton({
       states: [
@@ -730,28 +808,27 @@ class MapHandler {
           icon: "fa-newspaper",
           title: "Fetch News",
           onClick: (btn, map) => {
-            // Assuming this.currentCountryName holds the country name
+            this.currentCountryName = this.currentCountryName || "GB";
+
             $.ajax({
-              url: `php/fetch_news.php?newsCountry=${this.currentCountryName}`,
+              url: "php/fetch_news.php?newsCountry=" + this.currentCountryName,
               type: "GET",
               dataType: "json",
-              data: {
-                lr: "en-US", // Replace with the correct language region code
-              },
               success: (result) => {
                 console.log(result);
 
-                // Check if the result contains the data you need
-                if (result && Array.isArray(result.items)) {
+                if (result && Array.isArray(result.articles)) {
                   let modalContent = "";
 
                   // Iterate through the news articles and build the modal content
-                  result.items.forEach((article) => {
+                  result.articles.forEach((data) => {
                     modalContent += `
                       <div class="news-article">
-                        <h5>${article.title}</h5>
-                        <p>${article.snippet}</p>
-                        <a href="${article.newsUrl}" target="_blank">Read more</a>
+                        <h5>${data.title}</h5>
+                        <p>Author: ${data.author}</p>
+                        <p>Published at: ${data.publishedAt}</p>
+                        <p>Source: ${data.source.name}</p>
+                        <a href="${data.url}" target="_blank">Read more</a>
                       </div>
                     `;
                   });
@@ -775,75 +852,183 @@ class MapHandler {
     }).addTo(this.map);
   }
 
-  addEarthquakeDataButton() {
+  async fetchAndPlotNuclearData() {
+    const response = await fetch("php/fetch_nuclear_explosions.php");
+    const data = await response.json();
+    return data.nuclearExplosionsData;
+  }
+
+  showNuclearOptionsModal(data) {
+    // Create the modal content
+    let modalContent = `
+      <p>Please select country and decade for nuclear testing data:</p>
+      <select id="countrySelector">`;
+
+    // Get unique countries from the data
+    const uniqueCountries = [
+      ...new Set(data.map((item) => item["WEAPON SOURCE COUNTRY"])),
+    ];
+
+    // Create options for each country
+    uniqueCountries.forEach((country) => {
+      modalContent += `<option value="${country}">${country}</option>`;
+    });
+
+    modalContent += `</select>
+      <select id="decadeSelector">
+        <option value="1940">1940-1949</option>
+        <option value="1950">1950-1959</option>
+        <option value="1960">1960-1969</option>
+        <option value="1970">1970-1979</option>
+        <option value="1980">1980-1989</option>
+        <option value="1990">1990-1999</option>
+        <option value="2000">2000-2009</option>
+        <option value="2010">2010-2019</option>
+        <option value="2020">2020-2023</option>
+      </select>
+      <button id="nuclearFilterSubmit">Submit</button>`;
+
+    // Add the modal content to your modal container
+    document.getElementById("nuclear-options-modal").innerHTML = modalContent;
+
+    // Show the modal
+    $("#nuclear-options-modal").modal("show");
+  }
+
+  plotNuclearExplosions(data) {
+    if (data) {
+      for (let i = 0; i < data.length; i++) {
+        const lat = parseFloat(data[i]["Location.Cordinates.Latitude"]);
+        const lng = parseFloat(data[i]["Location.Cordinates.Longitude"]);
+
+        if (isNaN(lat) || isNaN(lng)) {
+          console.error("Invalid coordinates:", lat, lng);
+          continue;
+        }
+
+        // Create a popup content string with the relevant data
+        let popupContent = `<div class="popup-content">
+                              <p><strong>Weapon Source Country:</strong> ${data[i]["WEAPON SOURCE COUNTRY"]}</p>
+                              <p><strong>Deployment Location:</strong> ${data[i]["WEAPON DEPLOYMENT LOCATION"]}</p>
+                              <p><strong>Yield:</strong> ${data[i]["Data.Yeild.Lower"]} - ${data[i]["Data.Yeild.Upper"]}</p>
+                              <p><strong>Date:</strong> ${data[i]["Date.Day"]}/${data[i]["Date.Month"]}/${data[i]["Date.Year"]}</p>
+                            </div>`;
+
+        // Create the marker and attach the popup
+        const marker = L.marker([lat, lng], {
+          icon: L.icon({
+            iconUrl: "img/nuclear.gif",
+            iconSize: [25, 25],
+          }),
+        })
+          .bindPopup(popupContent)
+          .addTo(this.nuclearExplosions);
+
+        if (!marker) {
+          console.error("Failed to create marker for:", lat, lng);
+        }
+      }
+    } else {
+      console.error("No data provided to plotNuclearExplosions");
+    }
+  }
+
+  async fetchNuclearDataIfNeeded() {
+    if (!this.nuclearData) {
+      const response = await fetch("php/fetch_nuclear_explosions.php");
+      const data = await response.json();
+      this.nuclearData = data.nuclearExplosionsData;
+    }
+  }
+
+  async toggleNuclearLayer() {
+    if (this.nuclearExplosions.getLayers().length === 0) {
+      // Fetch data
+      const data = await this.fetchAndPlotNuclearData();
+
+      // Show modal with dropdowns
+      this.showNuclearOptionsModal(data);
+
+      // Attach an event listener to the submit button
+      document
+        .getElementById("nuclearFilterSubmit")
+        .addEventListener("click", () => {
+          // Clear existing layers
+          this.nuclearExplosions.clearLayers();
+
+          const selectedCountry =
+            document.getElementById("countrySelector").value;
+          const selectedDecade =
+            document.getElementById("decadeSelector").value;
+
+          const decadeStart = parseInt(selectedDecade, 10);
+          const decadeEnd = decadeStart + 9;
+
+          // Log selected country and decade
+          console.log("Selected country:", selectedCountry);
+          console.log("Selected decade:", selectedDecade);
+
+          // Filter data based on selected country and decade
+          const filteredData = data.filter((item) => {
+            const year = parseInt(item["Date.Year"], 10);
+            return (
+              item["WEAPON SOURCE COUNTRY"] === selectedCountry &&
+              year >= decadeStart &&
+              year <= decadeEnd
+            );
+          });
+
+          // Log the filtered data
+          console.log("Filtered data:", filteredData);
+
+          // Plot the filtered data
+          this.plotNuclearExplosions(filteredData);
+
+          // Relocate the map to one of the explosion locations if any
+          if (filteredData.length > 0) {
+            const firstExplosion = filteredData[0];
+            this.map.setView(
+              [
+                firstExplosion["Location.Cordinates.Latitude"],
+                firstExplosion["Location.Cordinates.Longitude"],
+              ],
+              3
+            );
+          }
+
+          // Display a small modal with the total number of detonations or a message if no data
+          const modalContentElement = document.getElementById(
+            "detonation-info-content"
+          );
+          if (modalContentElement) {
+            if (filteredData.length > 0) {
+              const detonationCount = filteredData.length;
+              const infoModalContent = `${selectedCountry} detonated ${detonationCount} nuclear explosions between ${decadeStart}-${decadeEnd}`;
+              modalContentElement.innerHTML = infoModalContent;
+            } else {
+              modalContentElement.innerHTML = `${selectedCountry} did not detonate any nuclear bombs during ${decadeStart}-${decadeEnd}`;
+            }
+
+            // Show the modal
+            $("#detonation-info-modal").modal("show");
+          } else {
+            console.error("Modal content element not found.");
+          }
+        });
+    } else {
+      this.nuclearExplosions.clearLayers();
+    }
+  }
+
+  addNuclearButton() {
     L.easyButton({
       states: [
         {
-          stateName: "fetch-earthquake-data",
-          icon: "fa-globe",
-          title: "Fetch Earthquake Data",
+          stateName: "toggle-nuclear",
+          icon: "fa-bomb",
+          title: "Toggle Nuclear Explosions",
           onClick: (btn, map) => {
-            if (!this.quakeMapper) {
-              map.setZoom(3);
-              $.ajax({
-                url: "php/fetch_earthquakes.php",
-                type: "GET",
-                dataType: "json",
-                success: (result) => {
-                  console.log(result); // Debugging line
-                  if (result.earthquakeData && result.earthquakeData.features) {
-                    for (
-                      let i = 0;
-                      i < result.earthquakeData.features.length;
-                      i++
-                    ) {
-                      const quakePos =
-                        result.earthquakeData.features[i].geometry.coordinates;
-                      const mag =
-                        result.earthquakeData.features[i].properties.mag *
-                        32 *
-                        50;
-                      const locDate = new Date(
-                        result.earthquakeData.features[i].properties.time
-                      )
-                        .toISOString()
-                        .slice(0, 19)
-                        .replace("T", " / ");
-
-                      L.circle([quakePos[1], quakePos[0]], {
-                        color: "red",
-                        fillColor: "white",
-                        fillOpacity: 0.8,
-                        radius: mag,
-                        stroke: true,
-                        weight: 5,
-                      }).addTo(this.myCircles).bindPopup(`
-  <div class="earthquake-popup">
-    <h5 class="magnitude">Magnitude: ${result.earthquakeData.features[i].properties.mag} points</h5>
-    <p class="place"><strong>Place: </strong>${result.earthquakeData.features[i].properties.place}</p>
-    <p class="type"><strong>Type: </strong>${result.earthquakeData.features[i].properties.type}</p>
-    <p class="unix-time"><strong>Unix Time: </strong>${result.earthquakeData.features[i].properties.time}</p>
-    <p class="local-date-time"><strong>Local Date / Time: </strong>${locDate}</p>
-  </div>
-`);
-                    }
-                    this.quakeMapper = true;
-                  } else {
-                    console.error(
-                      "No earthquakeData or features found in the result."
-                    );
-                  }
-                },
-                error: function (jqXHR, textStatus, errorThrown) {
-                  console.log(textStatus, errorThrown);
-                },
-              });
-            } else {
-              this.myCircles.eachLayer((layer) => {
-                this.myCircles.removeLayer(layer);
-              });
-              this.quakeMapper = false;
-            }
+            this.toggleNuclearLayer();
           },
         },
       ],
