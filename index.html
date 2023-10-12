@@ -53,92 +53,7 @@
     
     
     <div id="preloader"></div>
-    
-  <!-- Wikipedia Modal -->
-<div class="modal fade" id="wikipedia-modal" tabindex="-1" aria-labelledby="wikipediaModalLabel" aria-hidden="true">
-  <div class="modal-dialog"> <!-- Add the custom-navy-bg class here -->
-    <div class="modal-content custom-navy-bg">
-      <div class="modal-header">
-        <h5 class="modal-title" id="wikipediaModalLabel">Where are you?</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body">
-        <!-- Insert Wikipedia data here -->
-        <div id="wikipedia-title"></div>
-        <div id="wikipedia-summary"></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Earthquake Information Modal -->
-<div class="modal fade" id="earthquake-info-modal" tabindex="-1" aria-labelledby="earthquakeInfoModalLabel" aria-hidden="true">
-  <div class="modal-dialog custom-navy-bg">
-    <div class="modal-content custom-navy-bg"> <!-- Add the custom-navy-bg class here -->
-      <div class="modal-header">
-        <h5 class="modal-title" id="earthquakeInfoModalLabel">Earthquake Information</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body" id="earthquake-data">
-        <!-- Dynamic data will be inserted here -->
-      </div>
-    </div>
-  </div>
-</div>
-
-<div id="nuclear-options-modal" class="modal">
-  <div class="modal-dialog custom-navy-bg">
-    <div class="modal-content custom-navy-bg">
-      <div class="modal-header">
-        <h5 class="modal-title">Select Country for Nuclear Testing Data</h5>
-        <button type="button" class="close" data-dismiss="modal">&times;</button>
-      </div>
-      <div class="modal-body" id="nuclear-options-modal-content">
-        <!-- Dropdown and submit button will be inserted here by JavaScript -->
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Detonation Information Modal -->
-<div class="modal fade" id="detonation-info-modal" tabindex="-1" aria-labelledby="detonationInfoModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="detonationInfoModalLabel">Detonation Information</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body" id="detonation-info-content">
-        <!-- Dynamic content will be inserted here -->
-      </div>
-    </div>
-  </div>
-</div>
-
-
-
-<div class="modal fade" id="nuclear-options-modal" tabindex="-1" aria-labelledby="nuclearOptionsModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content custom-navy-bg"> <!-- Add the custom-navy-bg class here -->
-      <div class="modal-header">
-        <h5 class="modal-title" id="nuclearOptionsModalLabel">Select Country for Nuclear Testing Data</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body" id="nuclear-options-modal-content">
-        <!-- Dropdown and submit button will be inserted here by JavaScript -->
-      </div>
-    </div>
-  </div>
-</div>
-
+  
 <!-- News Information Modal -->
 <div class="modal fade" id="news-info-modal" tabindex="-1" aria-labelledby="newsInfoModalLabel" aria-hidden="true">
   <div class="modal-dialog">
@@ -155,6 +70,61 @@
     </div>
   </div>
 </div>
+
+
+
+<!-- Wikipedia History Modal -->
+<div class="modal fade" id="wikipedia-history-modal" tabindex="-1" aria-labelledby="wikipediaHistoryModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content custom-navy-bg">
+      <div class="modal-header">
+        <h5 class="modal-title" id="wikipediaHistoryModalLabel">Wikipedia History</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body" id="country-history">
+        <!-- Country historical data from Wikipedia will be inserted here -->
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- Currency Conversion Modal -->
+<div class="modal fade" id="currency-conversion-modal" tabindex="-1" aria-labelledby="currencyConversionModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content custom-navy-bg">
+      <div class="modal-header">
+        <h4 class="modal-title" id="currency-title"></h4>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form id="currency-converter-form">
+          <div class="form-group">
+            <label for="from-currency">From Currency</label>
+            <select class="form-control" id="from-currency"></select>
+          </div>
+          <div class="form-group">
+            <label for="to-currency">To Currency</label>
+            <select class="form-control" id="to-currency"></select>
+          </div>
+          <div class="form-group">
+            <label for="amount">Sum to convert</label>
+            <input type="number" class="form-control" id="amount" placeholder="Conversion">
+          </div>
+          <button type="submit" class="btn btn-primary">Convert</button>
+        </form>
+        <p id="conversion-result"></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
 
 
 

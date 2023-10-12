@@ -1,31 +1,29 @@
 <?php
 header("Content-Type: application/json");
 
-// Capture north, east, south, west coordinates from the request
-$north = $_GET['north'];
-$east = $_GET['east'];
-$south = $_GET['south'];
-$west = $_GET['west'];
+// Capture latitude and longitude from the GET request
+$lat = $_GET['lat'];
+$lng = $_GET['lng'];
 
-// Build the Overpass query
-$query = "
-    [out:json];
-    (
-        node['tourism'='museum']($south,$west,$north,$east);
-        node['amenity'='place_of_worship']($south,$west,$north,$east);
-        node['natural'='peak']($south,$west,$north,$east);
-        node['historic']($south,$west,$north,$east);
-        node['tourism'='theme_park']($south,$west,$north,$east);
-    );
-    out body;
-";
+// Set the optional parameters (you can adjust these as needed)
+$radius = isset($_GET['radius']) ? $_GET['radius'] : 10;
+$maxRows = isset($_GET['maxRows']) ? $_GET['maxRows'] : 10;
 
-// URL encode the query
-$encodedQuery = urlencode($query);
+// Construct the Geonames API URL for finding nearby points of interest
+$geonamesUrl = "https://api.geonames.org/findNearbyPOIsOSMJSON?lat=$lat&lng=$lng&radius=$radius&maxRows=$maxRows&username=mrfox815";
 
-// Fetch the data from the Overpass API
-$url = "http://overpass-api.de/api/interpreter?data=$encodedQuery";
-$response = file_get_contents($url);
+// Initialize a cURL session
+$ch = curl_init();
 
-// Return the data as JSON
+// Set cURL options
+curl_setopt($ch, CURLOPT_URL, $geonamesUrl);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+// Execute the cURL request and get the response
+$response = curl_exec($ch);
+
+// Close the cURL session
+curl_close($ch);
+
+// Return the response as JSON
 echo $response;

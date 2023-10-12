@@ -1,8 +1,5 @@
-// Preloader
 $(window).on("load", function () {
-  console.log("Window loaded"); // Debugging log
   if ($("#preloader").length) {
-    console.log("Hide"); // Debugging log
     $("#preloader")
       .delay(1000)
       .fadeOut("slow", function () {
@@ -108,6 +105,7 @@ class WikipediaAPI extends APIHandler {
   async fetchWikipediaForCentralLocation(map, lat = null, lon = null) {
     try {
       console.log("fetchWikipediaForCentralLocation called");
+
       if (!lat || !lon) {
         const center = map.getCenter();
         lat = center.lat.toFixed(6);
@@ -116,61 +114,38 @@ class WikipediaAPI extends APIHandler {
 
       console.log("Sending lat:", lat, " lon:", lon);
 
+      // Fetch basic Geonames information
       const result = await this.makeAjaxCall(
-        "./php/fetch_wikipedia.php", // Your PHP file path
+        "./php/fetch_wikipedia.php",
         "GET",
         "json",
-        { lat: lat, lon: lon } // Pass parameters to PHP
+        { lat: lat, lon: lon }
       );
 
-      console.log(result);
       if (
         result.placeInfo &&
         result.placeInfo.geonames &&
         result.placeInfo.geonames.length > 0
       ) {
-        const placeName = result.placeInfo.geonames[0].adminName1;
         const countryName = result.placeInfo.geonames[0].countryName;
+        console.log("Country Name: ", countryName);
 
-        let title = "Unknown";
-        let wikipediaSummary = "No information available.";
+        // Fetch historical data from Wikipedia via PHP
+        const historyResult = await this.makeAjaxCall(
+          "./php/fetch_country_history.php",
+          "GET",
+          "json",
+          { countryName: countryName }
+        );
+        console.log("History Result:", historyResult);
 
-        if (
-          result.wikipediaInfo &&
-          result.wikipediaInfo.geonames &&
-          result.wikipediaInfo.geonames.length > 0
-        ) {
-          title = result.wikipediaInfo.geonames[0].title;
-          wikipediaSummary = result.wikipediaInfo.geonames[0].summary;
-        }
+        // Assume the page ID is the first key in the 'pages' object
+        const pageId = Object.keys(historyResult.query.pages)[0];
+        const countryHistory = historyResult.query.pages[pageId].extract;
 
-        let infoHtml = '<div><img src="lost.gif" width="150" height="150">';
-
-        if (title !== "Unknown") {
-          infoHtml += `<h2>${title}</h2>`;
-        }
-
-        if (placeName) {
-          infoHtml += `<h3>${placeName}</h3>`;
-        }
-
-        if (countryName) {
-          infoHtml += `<h4>${countryName}</h4>`;
-        }
-
-        if (wikipediaSummary !== "No information available.") {
-          infoHtml += `<p>${wikipediaSummary}</p>`;
-        }
-
-        if (result.placeInfo.geonames[0].name) {
-          infoHtml += `<p>Village/Town: ${result.placeInfo.geonames[0].name}</p>`;
-        }
-
-        infoHtml += `<p>Coordinates: ${result.placeInfo.geonames[0].lat}, ${result.placeInfo.geonames[0].lng}</p>`;
-        infoHtml += "</div>";
-
-        $("#wikipedia-summary").html(infoHtml);
-        $("#wikipedia-modal").modal("show");
+        // Display the fetched history in the new modal
+        $("#country-history").html(countryHistory);
+        $("#wikipedia-history-modal").modal("show");
       } else {
         console.error("No geonames data found.");
       }
@@ -187,7 +162,6 @@ class GeoNamesAPI extends APIHandler {
     this.locationCache = {};
     this.markerClusterGroups = {};
     this.map = null; // Store the map reference
-    this.routeButton = null; // Add this line to store the route button
   }
 
   createPopup(content, lat, lng) {
@@ -206,52 +180,15 @@ let userLocationMarker = null;
 class MapHandler {
   constructor(mapId) {
     this.map = L.map(mapId);
-    this.myCircles = L.layerGroup(); // Not added to map
-    this.nuclearExplosions = L.layerGroup(); // Not added to map
-    this.nuclearExplosions.addTo(this.map);
-    this.quakeMapper = false; // Initialize quakeMapper flag
     this.userLocation = null;
     this.countryBorder = null;
     this.userLocationMarker = null;
     this.currentCountryName = null;
     this.singleMarker = null; // Initialize to null
-    this.routingControl = null; // Add this line
-    this.currentAnimationIndex = 0; // Initialize to 0
-    this.carMarker = null; // Add this line to store the car marker
-    this.areMarkersActive = false; // Add this line to track if markers are active
-    this.isAnimationRunning = false;
+    this.airportLayer = L.layerGroup(); // Initialize airport layer
     this.pointdata = L.layerGroup(); // Initialize this as per your requirement
     this.linedata = L.layerGroup(); // Initialize this as per your requirement
     this.polygondata = L.layerGroup(); // Initialize this as per your requirement
-
-    this.openStreetMap_HOT = L.tileLayer(
-      "https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png",
-      {
-        maxZoom: 19,
-      }
-    ); // Add this line
-    this.thunderforestTransportDark = L.tileLayer(
-      "https://{s}.tile.thunderforest.com/transport-dark/{z}/{x}/{y}.png?apikey={apikey}",
-      {
-        apikey: "8d88d1ca689749cdaf61d2e8b86bfbec",
-        maxZoom: 22,
-      }
-    );
-
-    this.thunderforestSpinalMap = L.tileLayer(
-      "https://{s}.tile.thunderforest.com/spinal-map/{z}/{x}/{y}.png?apikey={apikey}",
-      {
-        apikey: "8d88d1ca689749cdaf61d2e8b86bfbec",
-        maxZoom: 22,
-      }
-    );
-
-    this.openTopoMap = L.tileLayer(
-      "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
-      {
-        maxZoom: 17,
-      }
-    );
     this.standardLayer = L.tileLayer(OPEN_STREET_MAP_URL, {
       maxZoom: 19,
     }).addTo(this.map);
@@ -260,106 +197,34 @@ class MapHandler {
     this.wikipediaAPI = new WikipediaAPI();
     this.geoNamesAPI = new GeoNamesAPI();
     this.locationCache = {};
-    this.markers = [];
-    this.isAnimationRunning = false; // To check if the animation is running
-    this.isAnimationPaused = false; // To check if the animation is paused
-    this.currentAnimationIndex = 0; // To keep track of the current animation index
-    this.timeoutIds = []; // To store timeout IDs for clearing
-    this.isMarkerPlacementActive = false;
+
     this.geoJsonLayer = null; // Add this line to store the GeoJSON layer
     this.init();
   }
 
   init() {
     console.log("Init function called");
-
     this.initializeMap();
-    this.initializeLayers();
     this.initializeButtons();
-    this.initializeEventHandlers();
     this.fetchAndSetUserLocation();
-
-    this.map.on("overlayadd", (event) => {
-      console.log("overlayadd event fired");
-      if (event.layer === this.myCircles && !this.earthquakeToggle) {
-      }
-    });
+    this.initializeLayerControl();
   }
 
-  initEarthquakeCheckbox() {
-    let layerControlContainer = this.layerControl._container;
+  initializeLayerControl() {
+    console.log("Initializing layer control"); // Debugging log
 
-    // Create new checkbox
-    this.earthquakeToggle = document.createElement("input");
-    this.earthquakeToggle.type = "checkbox";
-    this.earthquakeToggle.id = "earthquakeToggle";
-    this.earthquakeToggle.checked = false;
+    const baseMaps = {
+      Standard: this.standardLayer,
+      Satellite: this.satelliteLayer,
+    };
 
-    // Append to container
-    layerControlContainer.appendChild(this.earthquakeToggle);
+    const overlayMaps = {
+      Airports: this.airportLayer,
+    };
 
-    // Attach the event listener
-    this.handleEarthquakeToggle = this.handleEarthquakeToggle.bind(this);
-    this.earthquakeToggle.addEventListener(
-      "change",
-      this.handleEarthquakeToggle
-    );
-  }
-
-  handleEarthquakeToggle(event) {
-    if (event.target.checked) {
-      this.map.setZoom(3);
-      $.ajax({
-        url: "php/fetch_earthquakes.php",
-        type: "GET",
-        dataType: "json",
-        success: (result) => {
-          console.log(result); // Debugging line
-          if (result.earthquakeData && result.earthquakeData.features) {
-            for (let i = 0; i < result.earthquakeData.features.length; i++) {
-              const quakePos =
-                result.earthquakeData.features[i].geometry.coordinates;
-              const mag =
-                result.earthquakeData.features[i].properties.mag * 32 * 50;
-              const locDate = new Date(
-                result.earthquakeData.features[i].properties.time
-              )
-                .toISOString()
-                .slice(0, 19)
-                .replace("T", " / ");
-
-              L.circle([quakePos[1], quakePos[0]], {
-                color: "red",
-                fillColor: "white",
-                fillOpacity: 0.7,
-                radius: mag,
-                stroke: true,
-                weight: 3,
-              }).addTo(this.myCircles).bindPopup(`
-                  <div class="earthquake-popup">
-                    <h5 class="magnitude">Magnitude: ${result.earthquakeData.features[i].properties.mag} points</h5>
-                    <p class="place"><strong>Place: </strong>${result.earthquakeData.features[i].properties.place}</p>
-                    <p class="type"><strong>Type: </strong>${result.earthquakeData.features[i].properties.type}</p>
-                    <p class="unix-time"><strong>Unix Time: </strong>${result.earthquakeData.features[i].properties.time}</p>
-                    <p class="local-date-time"><strong>Local Date / Time: </strong>${locDate}</p>
-                  </div>
-                `);
-            }
-            this.quakeMapper = true;
-          } else {
-            console.error("No earthquakeData or features found in the result.");
-          }
-        },
-        error: function (jqXHR, textStatus, errorThrown) {
-          console.log(textStatus, errorThrown);
-        },
-      });
-    } else {
-      this.myCircles.eachLayer((layer) => {
-        this.myCircles.removeLayer(layer);
-      });
-      this.quakeMapper = false;
-    }
+    L.control
+      .layers(baseMaps, overlayMaps, { position: "topright" })
+      .addTo(this.map);
   }
 
   initializeMap() {
@@ -367,256 +232,48 @@ class MapHandler {
   }
 
   initializeButtons() {
-    this.initializeLayers();
     this.addWeatherButton();
-    this.addClearMarkersButton();
-    this.routeButton = this.addRouteButton(); // Store the route button
-    this.routeButton.disable(); // Disable the route button initially
+    this.addWikiButton();
     this.addNewsButton(); // Initialize the news button
-    this.addNuclearButton(); // Add this line
-    this.addEarthquakeButton(); // Initialize the earthquake button
-
     this.addUserLocationButton(); // Add this line
   }
 
-  initializeEventHandlers() {
-    this.map.on("click", this.handleMapClick.bind(this));
-    this.updateRouteButtonState();
-    this.map.on("baselayerchange", this.updateCarIcon.bind(this));
-  }
+  fetchAirports(country, lang) {
+    console.log("Country and Lang before fetch:", country, lang);
 
-  updateRouteButtonState() {
-    if (this.markers.length >= 2) {
-      this.routeButton.enable();
-    } else {
-      this.routeButton.disable();
-    }
-  }
-
-  updateCarIcon() {
-    if (this.carMarker) {
-      if (this.map.hasLayer(this.thunderforestSpinalMap)) {
-        this.carMarker.setIcon(carIconSpinal);
-      } else {
-        this.carMarker.setIcon(carIconStandard);
-      }
-    }
-  }
-
-  handleMapClick(e) {
-    if (this.isAnimationRunning) {
-      console.log("Animation is running, marker placement is disabled.");
-      return;
-    }
-
-    if (!this.isMarkerPlacementActive) return;
-
-    const lat = e.latlng.lat;
-    const lng = e.latlng.lng;
-    const marker = L.marker([lat, lng]).addTo(this.map);
-    this.markers.push(marker);
-    marker.on("click", () => {
-      this.wikipediaAPI.fetchWikipediaForCentralLocation(this.map, lat, lng);
+    const url = `./php/fetch_airports.php?country=${country}&lang=${lang}`;
+    console.log("URL being used:", url); // Add this line
+    return new Promise((resolve, reject) => {
+      $.ajax({
+        url: url,
+        type: "GET",
+        dataType: "json",
+        success: (result) => {
+          resolve(result);
+        },
+        error: (error) => {
+          reject(error);
+        },
+      });
     });
-    this.updateRouteButtonState(); // Add this line
   }
 
-  // Method to clear all markers
-  clearMarkers() {
-    this.isAnimationRunning = false; // Stop any ongoing animations
-    this.currentAnimationIndex = 0;
-
-    this.markers.forEach((marker) => {
-      this.map.removeLayer(marker);
+  // This function displays airports on the map.
+  fetchAirports(country, lang) {
+    const url = `./php/fetch_airports.php?country=${country}&lang=${lang}`;
+    return new Promise((resolve, reject) => {
+      $.ajax({
+        url: url,
+        type: "GET",
+        dataType: "json",
+        success: (result) => {
+          resolve(result);
+        },
+        error: (error) => {
+          reject(error);
+        },
+      });
     });
-    this.markers = [];
-
-    if (this.routingControl) {
-      this.map.removeControl(this.routingControl);
-      this.routingControl = null;
-    }
-
-    console.log("Before removing carMarker:", this.carMarker); // Debugging line
-
-    if (this.carMarker) {
-      this.map.removeLayer(this.carMarker);
-      this.carMarker = null;
-    }
-
-    console.log("After removing carMarker:", this.carMarker); // Debugging line
-
-    // Force map to redraw
-    this.map.invalidateSize();
-    this.updateRouteButtonState(); // Add this line
-  }
-
-  // Method to create a route
-  createRoute() {
-    // Define waypoints here
-    const waypoints = this.markers.map((marker) =>
-      L.latLng(marker.getLatLng())
-    );
-    if (this.routingControl) {
-      this.map.removeControl(this.routingControl);
-      this.routingControl = null;
-    }
-
-    if (this.isAnimationRunning) {
-      // Show a popup from the car icon
-      if (this.carMarker) {
-        const popup = L.popup()
-          .setLatLng(this.carMarker.getLatLng())
-          .setContent("Hold your horses, I'm on a route here!")
-          .openOn(this.map);
-      }
-      return;
-    }
-
-    // Create a routing control and assign it to the class variable
-    this.routingControl = L.Routing.control({
-      waypoints: waypoints,
-      routeWhileDragging: true,
-      addWaypoints: false,
-      draggableWaypoints: false,
-    }).addTo(this.map);
-
-    // Create a car icon
-    const carIconStandard = L.icon({
-      iconUrl: "img/car-icon.png",
-      iconSize: [30, 30],
-    });
-
-    const carIconSpinal = L.icon({
-      iconUrl: "img/ghostrider.gif",
-      iconSize: [100, 100],
-    });
-
-    // Create a marker with the car icon
-    const initialCarIcon = this.map.hasLayer(this.thunderforestSpinalMap)
-      ? carIconSpinal
-      : carIconStandard;
-    const carMarker = L.marker(waypoints[0], { icon: initialCarIcon }).addTo(
-      this.map
-    );
-
-    // Set this.carMarker to the newly created carMarker
-    this.carMarker = carMarker;
-
-    // Listen for routesfound event on the Routing Control
-    this.routingControl.on("routesfound", (e) => {
-      console.log("routesfound event triggered"); // Debugging line
-      const coordinates = e.routes[0].coordinates;
-      console.log("Coordinates:", coordinates); // Debugging line
-
-      // Function to update car position
-      const moveCar = () => {
-        console.log("Inside moveCar function"); // Debugging line
-        if (
-          this.currentAnimationIndex < coordinates.length &&
-          this.carMarker &&
-          this.isAnimationRunning
-        ) {
-          console.log("Animating car"); // Debugging line
-          this.carMarker.setLatLng(coordinates[this.currentAnimationIndex]);
-          this.currentAnimationIndex++; // Update the current index
-          setTimeout(moveCar, 5);
-        }
-      };
-
-      // Start the animation
-      this.isAnimationRunning = true; // Add this line
-      console.log("Starting animation"); // Debugging line
-      moveCar();
-    });
-
-    // Function to update car position
-    const moveCar = () => {
-      if (
-        this.currentAnimationIndex < coordinates.length &&
-        this.carMarker &&
-        this.isAnimationRunning
-      ) {
-        this.carMarker.setLatLng(coordinates[this.currentAnimationIndex]);
-        this.currentAnimationIndex++; // Update the current index
-        setTimeout(moveCar, 5); // Move every 1 second
-      }
-    };
-  }
-
-  initializeLayers() {
-    // CartoDB DarkMatter Layer
-    this.CartoDB_DarkMatter = L.tileLayer(
-      "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-      {
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-        subdomains: "abcd",
-        maxZoom: 19,
-      }
-    );
-
-    // Google Streets Layer
-    this.googleStreets = L.tileLayer(
-      "http://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}",
-      {
-        maxZoom: 20,
-        subdomains: ["mt0", "mt1", "mt2", "mt3"],
-      }
-    );
-
-    // Google Satellite Layer
-    this.googleSat = L.tileLayer(
-      "http://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
-      {
-        maxZoom: 20,
-        subdomains: ["mt0", "mt1", "mt2", "mt3"],
-      }
-    );
-
-    // Stamen Watercolor Layer
-    this.Stamen_Watercolor = L.tileLayer(
-      "https://stamen-tiles-{s}.a.ssl.fastly.net/watercolor/{z}/{x}/{y}.{ext}",
-      {
-        subdomains: "abcd",
-        minZoom: 1,
-        maxZoom: 16,
-        ext: "jpg",
-      }
-    );
-
-    // Base Layers for Layer Control
-    this.baseLayers = {
-      Satellite: this.googleSat,
-      "Google Streets": this.googleStreets,
-      Watercolor: this.Stamen_Watercolor,
-      "Dark Matter": this.CartoDB_DarkMatter,
-      "Standard Map": this.standardLayer,
-      "Hot Map": this.openStreetMap_HOT,
-      "Transport Dark Map": this.thunderforestTransportDark,
-      "Spinal Map": this.thunderforestSpinalMap,
-      "Topo Map": this.openTopoMap,
-    };
-    this.initializeOrUpdateLayerControl();
-  }
-
-  initializeOrUpdateLayerControl() {
-    if (!this.layerControl) {
-      // Define overlays
-      this.overlays = {
-        "Earthquake Data": this.myCircles || new L.LayerGroup(),
-      };
-
-      // Add a new layer control
-      this.layerControl = L.control
-        .layers(this.baseLayers, this.overlays, { collapsed: true }) // Set to true to make it collapsed by default
-        .addTo(this.map);
-    }
-
-    // Fetch layer control container
-    let layerControlContainer = this.layerControl._container;
-
-    // Configuration for the observer
-    const config = { attributes: true, childList: true, subtree: true };
   }
 
   fetchAndSetUserLocation() {
@@ -712,61 +369,6 @@ class MapHandler {
     });
   }
 
-  // Add this in your init() method to create the button
-  addClearMarkersButton() {
-    const clearMarkersButton = L.easyButton({
-      states: [
-        {
-          stateName: "activate-markers",
-          icon: "fa-map-marker",
-          title: "Activate Markers",
-          onClick: (btn, map) => {
-            this.isMarkerPlacementActive = true;
-            btn.state("deactivate-markers");
-          },
-        },
-        {
-          stateName: "deactivate-markers",
-          icon: "fa-trash",
-          title: "Deactivate Markers",
-          onClick: (btn, map) => {
-            this.isMarkerPlacementActive = false;
-            this.clearMarkers();
-            btn.state("activate-markers");
-          },
-        },
-      ],
-    }).addTo(this.map);
-  }
-
-  // Add this method to your MapHandler class
-  addEarthquakeButton() {
-    L.easyButton({
-      states: [
-        {
-          stateName: "show-earthquakes",
-          icon: "fa-globe",
-          title: "Show Earthquakes",
-          onClick: (btn, map) => {
-            // Logic to fetch and display earthquake data goes here
-            this.handleEarthquakeToggle({ target: { checked: true } });
-            btn.state("hide-earthquakes");
-          },
-        },
-        {
-          stateName: "hide-earthquakes",
-          icon: "fa-globe",
-          title: "Hide Earthquakes",
-          onClick: (btn, map) => {
-            // Logic to remove earthquake data goes here
-            this.handleEarthquakeToggle({ target: { checked: false } });
-            btn.state("show-earthquakes");
-          },
-        },
-      ],
-    }).addTo(this.map);
-  }
-
   addUserLocationButton() {
     L.easyButton({
       states: [
@@ -775,7 +377,41 @@ class MapHandler {
           icon: "fa-location-arrow",
           title: "Find Me",
           onClick: (btn, map) => {
-            this.fetchAndSetUserLocation(); // This method is already in your code
+            // Fetch and set user's location
+            this.fetchAndSetUserLocation();
+
+            // Update the country information modal
+            // This assumes that `currentCountryInfo` is updated inside `fetchAndSetUserLocation()`
+            if (currentCountryInfo.title) {
+              // Populate the modal using currentCountryInfo
+              $("#countryInfoModalLabel").text(currentCountryInfo.title);
+              $("#country-title").html(`<h3>${currentCountryInfo.title}</h3>`);
+              $("#country-description").html(
+                `<p>Description: ${currentCountryInfo.description}</p>`
+              );
+              $("#country-population").html(
+                `<p>Population: ${currentCountryInfo.population}</p>`
+              );
+              $("#country-flag").html(
+                `<img src="${currentCountryInfo.flag}" alt="Flag of ${currentCountryInfo.title}" width="100">`
+              );
+            }
+          },
+        },
+      ],
+    }).addTo(this.map);
+  }
+
+  addWikiButton() {
+    L.easyButton({
+      states: [
+        {
+          stateName: "fetch-wikipedia",
+          icon: '<img src="wiki.gif" width="20" height="20">',
+          title: "Fetch Wikipedia Info",
+          onClick: (btn, map) => {
+            const wikipediaAPI = new WikipediaAPI(); // Create an instance of WikipediaAPI
+            wikipediaAPI.fetchWikipediaForCentralLocation(map);
           },
         },
       ],
@@ -806,7 +442,7 @@ class MapHandler {
         {
           stateName: "fetch-news",
           icon: "fa-newspaper",
-          title: "Fetch News",
+          title: "Fetch Country News",
           onClick: (btn, map) => {
             this.currentCountryName = this.currentCountryName || "GB";
 
@@ -850,214 +486,6 @@ class MapHandler {
         },
       ],
     }).addTo(this.map);
-  }
-
-  async fetchAndPlotNuclearData() {
-    const response = await fetch("php/fetch_nuclear_explosions.php");
-    const data = await response.json();
-    return data.nuclearExplosionsData;
-  }
-
-  showNuclearOptionsModal(data) {
-    // Create the modal content
-    let modalContent = `
-      <p>Please select country and decade for nuclear testing data:</p>
-      <select id="countrySelector">`;
-
-    // Get unique countries from the data
-    const uniqueCountries = [
-      ...new Set(data.map((item) => item["WEAPON SOURCE COUNTRY"])),
-    ];
-
-    // Create options for each country
-    uniqueCountries.forEach((country) => {
-      modalContent += `<option value="${country}">${country}</option>`;
-    });
-
-    modalContent += `</select>
-      <select id="decadeSelector">
-        <option value="1940">1940-1949</option>
-        <option value="1950">1950-1959</option>
-        <option value="1960">1960-1969</option>
-        <option value="1970">1970-1979</option>
-        <option value="1980">1980-1989</option>
-        <option value="1990">1990-1999</option>
-        <option value="2000">2000-2009</option>
-        <option value="2010">2010-2019</option>
-        <option value="2020">2020-2023</option>
-      </select>
-      <button id="nuclearFilterSubmit">Submit</button>`;
-
-    // Add the modal content to your modal container
-    document.getElementById("nuclear-options-modal").innerHTML = modalContent;
-
-    // Show the modal
-    $("#nuclear-options-modal").modal("show");
-  }
-
-  plotNuclearExplosions(data) {
-    if (data) {
-      for (let i = 0; i < data.length; i++) {
-        const lat = parseFloat(data[i]["Location.Cordinates.Latitude"]);
-        const lng = parseFloat(data[i]["Location.Cordinates.Longitude"]);
-
-        if (isNaN(lat) || isNaN(lng)) {
-          console.error("Invalid coordinates:", lat, lng);
-          continue;
-        }
-
-        // Create a popup content string with the relevant data
-        let popupContent = `<div class="popup-content">
-                              <p><strong>Weapon Source Country:</strong> ${data[i]["WEAPON SOURCE COUNTRY"]}</p>
-                              <p><strong>Deployment Location:</strong> ${data[i]["WEAPON DEPLOYMENT LOCATION"]}</p>
-                              <p><strong>Yield:</strong> ${data[i]["Data.Yeild.Lower"]} - ${data[i]["Data.Yeild.Upper"]}</p>
-                              <p><strong>Date:</strong> ${data[i]["Date.Day"]}/${data[i]["Date.Month"]}/${data[i]["Date.Year"]}</p>
-                            </div>`;
-
-        // Create the marker and attach the popup
-        const marker = L.marker([lat, lng], {
-          icon: L.icon({
-            iconUrl: "img/nuclear.gif",
-            iconSize: [25, 25],
-          }),
-        })
-          .bindPopup(popupContent)
-          .addTo(this.nuclearExplosions);
-
-        if (!marker) {
-          console.error("Failed to create marker for:", lat, lng);
-        }
-      }
-    } else {
-      console.error("No data provided to plotNuclearExplosions");
-    }
-  }
-
-  async fetchNuclearDataIfNeeded() {
-    if (!this.nuclearData) {
-      const response = await fetch("php/fetch_nuclear_explosions.php");
-      const data = await response.json();
-      this.nuclearData = data.nuclearExplosionsData;
-    }
-  }
-
-  async toggleNuclearLayer() {
-    if (this.nuclearExplosions.getLayers().length === 0) {
-      // Fetch data
-      const data = await this.fetchAndPlotNuclearData();
-
-      // Show modal with dropdowns
-      this.showNuclearOptionsModal(data);
-
-      // Attach an event listener to the submit button
-      document
-        .getElementById("nuclearFilterSubmit")
-        .addEventListener("click", () => {
-          // Clear existing layers
-          this.nuclearExplosions.clearLayers();
-
-          const selectedCountry =
-            document.getElementById("countrySelector").value;
-          const selectedDecade =
-            document.getElementById("decadeSelector").value;
-
-          const decadeStart = parseInt(selectedDecade, 10);
-          const decadeEnd = decadeStart + 9;
-
-          // Log selected country and decade
-          console.log("Selected country:", selectedCountry);
-          console.log("Selected decade:", selectedDecade);
-
-          // Filter data based on selected country and decade
-          const filteredData = data.filter((item) => {
-            const year = parseInt(item["Date.Year"], 10);
-            return (
-              item["WEAPON SOURCE COUNTRY"] === selectedCountry &&
-              year >= decadeStart &&
-              year <= decadeEnd
-            );
-          });
-
-          // Log the filtered data
-          console.log("Filtered data:", filteredData);
-
-          // Plot the filtered data
-          this.plotNuclearExplosions(filteredData);
-
-          // Relocate the map to one of the explosion locations if any
-          if (filteredData.length > 0) {
-            const firstExplosion = filteredData[0];
-            this.map.setView(
-              [
-                firstExplosion["Location.Cordinates.Latitude"],
-                firstExplosion["Location.Cordinates.Longitude"],
-              ],
-              3
-            );
-          }
-
-          // Display a small modal with the total number of detonations or a message if no data
-          const modalContentElement = document.getElementById(
-            "detonation-info-content"
-          );
-          if (modalContentElement) {
-            if (filteredData.length > 0) {
-              const detonationCount = filteredData.length;
-              const infoModalContent = `${selectedCountry} detonated ${detonationCount} nuclear explosions between ${decadeStart}-${decadeEnd}`;
-              modalContentElement.innerHTML = infoModalContent;
-            } else {
-              modalContentElement.innerHTML = `${selectedCountry} did not detonate any nuclear bombs during ${decadeStart}-${decadeEnd}`;
-            }
-
-            // Show the modal
-            $("#detonation-info-modal").modal("show");
-          } else {
-            console.error("Modal content element not found.");
-          }
-        });
-    } else {
-      this.nuclearExplosions.clearLayers();
-    }
-  }
-
-  addNuclearButton() {
-    L.easyButton({
-      states: [
-        {
-          stateName: "toggle-nuclear",
-          icon: "fa-bomb",
-          title: "Toggle Nuclear Explosions",
-          onClick: (btn, map) => {
-            this.toggleNuclearLayer();
-          },
-        },
-      ],
-    }).addTo(this.map);
-  }
-
-  addRouteButton() {
-    const routeButton = L.easyButton({
-      states: [
-        {
-          stateName: "create-route",
-          icon: "fa-car",
-          title: "Create Route",
-          onClick: () => {
-            console.log("Route button clicked"); // Debugging line
-            console.log(this); // Debugging line to check the context of 'this'
-
-            if (this.markers.length >= 2) {
-              // Removed this.areMarkersActive
-              console.log("Creating route"); // Debugging line
-              this.createRoute();
-            } else {
-              console.log("Cannot create route"); // Debugging line
-            }
-          },
-        },
-      ],
-    }).addTo(this.map);
-    return routeButton;
   }
 }
 
@@ -1123,68 +551,10 @@ let currentCountryInfo = {};
             console.error("No matching country found");
             return;
           }
-          infoButton.enable();
 
           const [lng, lat] = countryFeature.geometry.coordinates;
           wikidata = countryFeature.properties.wikidata;
           mapHandler.map.setView([lat, lng], 5);
-
-          $.ajax({
-            url: `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${wikidata}&format=json&origin=*`,
-            type: "GET",
-            success: function (data) {
-              const entity = data.entities[wikidata];
-
-              // Check and fetch description
-              const description =
-                entity.descriptions && entity.descriptions.en
-                  ? entity.descriptions.en.value
-                  : "No description available";
-
-              // Check and fetch population
-              const population =
-                entity.claims &&
-                entity.claims.P1082 &&
-                entity.claims.P1082[0].mainsnak.datavalue
-                  ? entity.claims.P1082[0].mainsnak.datavalue.value.amount
-                  : "Unknown";
-
-              // Check and fetch flag
-              let flag = "No flag available";
-              if (
-                entity.claims &&
-                entity.claims.P41 &&
-                entity.claims.P41[0].mainsnak.datavalue
-              ) {
-                const flagFileName =
-                  entity.claims.P41[0].mainsnak.datavalue.value;
-                flag = `https://commons.wikimedia.org/wiki/Special:FilePath/${flagFileName}?width=300`; // Adjust width as needed
-              }
-
-              // Populate the Country Info modal with Wikidata information
-              $("#countryInfoModalLabel").text(entity.labels.en.value);
-
-              $("#country-title").html(`<h3>${entity.labels.en.value}</h3>`);
-
-              $("#country-description").html(
-                `<p>Description: ${description}</p>`
-              );
-
-              $("#country-population").html(`<p>Population: ${population}</p>`);
-
-              $("#country-flag").html(
-                `<img src="${flag}" alt="Flag of ${entity.labels.en.value}" width="100">`
-              );
-
-              // Update currentCountryInfo
-              currentCountryInfo = {
-                title: entity.labels.en.value,
-                description: description,
-                population: population,
-                flag: flag,
-              };
-            },
-          });
         },
         error: function (error) {
           console.error("Error fetching location data: ", error);
@@ -1192,7 +562,54 @@ let currentCountryInfo = {};
       });
     });
 
-    // Initialize easyButton
+    // Country Information fetch from Wiki
+
+    async function fetchCountryDataForCentralLocation(lat, lon) {
+      try {
+        // Fetch country code and name based on latitude and longitude
+        const geoResult = await $.ajax({
+          url: `./php/fetch_geonames.php?lat=${lat}&lng=${lon}`,
+          type: "GET",
+          dataType: "json",
+        });
+        console.log(geoResult);
+        console.log(`Latitude: ${lat}, Longitude: ${lon}`);
+
+        const { countryCode, countryName } = geoResult;
+
+        if (countryCode) {
+          const countryResult = await $.ajax({
+            url: `./php/fetch_country_info.php?countryCode=${countryCode}`,
+            type: "GET",
+            dataType: "json",
+          });
+
+          if (countryResult && countryResult[0]) {
+            const countryInfo = countryResult[0];
+            const name = countryInfo.name.common || "Unknown";
+            const population = countryInfo.population || "Unknown";
+            const flag =
+              countryInfo.flags.svg || "path/to/default/flag/image.png"; // Make sure to adjust this based on the actual API response
+
+            $("#countryInfoModalLabel").text(name);
+            $("#country-title").html(`<h3>${name}</h3>`);
+            $("#country-population").html(`<p>Population: ${population}</p>`);
+            $("#country-flag").html(
+              `<img src="${flag}" alt="Flag of ${name}" width="100">`
+            );
+
+            $("#country-info-modal").modal("show");
+          } else {
+            console.error("No country data found.");
+          }
+        } else {
+          console.error("No country code found.");
+        }
+      } catch (error) {
+        console.error("Error fetching data: ", error);
+      }
+    }
+
     let infoButton = L.easyButton({
       id: "toggle-info-button",
       position: "topleft",
@@ -1202,39 +619,153 @@ let currentCountryInfo = {};
         {
           stateName: "show-info",
           onClick: function (button, map) {
-            // Populate the modal using currentCountryInfo
-            $("#countryInfoModalLabel").text(currentCountryInfo.title);
-            $("#country-title").html(`<h3>${currentCountryInfo.title}</h3>`);
-            $("#country-description").html(
-              `<p>Description: ${currentCountryInfo.description}</p>`
-            );
-            $("#country-population").html(
-              `<p>Population: ${currentCountryInfo.population}</p>`
-            );
-            $("#country-flag").html(
-              `<img src="${currentCountryInfo.flag}" alt="Flag of ${currentCountryInfo.title}" width="100">`
-            );
-            $("#country-info-modal").modal("show");
+            const center = map.getCenter();
+            const lat = center.lat.toFixed(6);
+            const lon = center.lng.toFixed(6);
+            fetchCountryDataForCentralLocation(lat, lon);
           },
           title: "Show country info",
           icon: "fa-info",
         },
       ],
     });
+
     infoButton.addTo(mapHandler.map);
-    infoButton.disable(); // Disable the button initially
 
-    // Bootstrap modal events to toggle the easyButton state
-    $("#wikipedia-modal").on("shown.bs.modal", function () {
-      infoButton.state("hide-info");
+    ////////////////////////////////////
+
+    ///////////////////////////////////
+
+    // Adding EasyButton for currency conversion
+    let currencyConversionButton = L.easyButton({
+      id: "toggle-currency-conversion-button",
+      position: "topleft",
+      type: "replace",
+      leafletClasses: true,
+      states: [
+        {
+          stateName: "show-currency-conversion",
+          onClick: function (button, map) {
+            fetchAndDisplayCurrencyConversion();
+          },
+          title: "Show currency conversion",
+          icon: "fa-exchange-alt", // Font Awesome icon for currency exchange
+        },
+      ],
     });
 
-    $("#wikipedia-modal").on("hidden.bs.modal", function () {
-      infoButton.state("show-info");
-    });
+    currencyConversionButton.addTo(mapHandler.map); // Add the button to the map
 
-    $("#wikipedia-modal").on("hidden.bs.modal", function () {
-      infoButton.state("show-info");
+    // Function to fetch and display currency conversion
+    let result = null; // Declare result variable to store exchange rates globally
+    let globalExchangeRates = null; // Declare at the top-level scope of your script
+
+    // Function to fetch and display currency conversion
+    async function fetchAndDisplayCurrencyConversion() {
+      try {
+        const exchangeRates = await $.ajax({
+          url: "./php/fetch_exchange_rates.php",
+          type: "GET",
+          dataType: "json",
+        });
+
+        const center = mapHandler.map.getCenter();
+        const lat = center.lat.toFixed(6);
+        const lon = center.lng.toFixed(6);
+        const countryAndCurrencyData = await $.ajax({
+          url: `./php/fetch_geonames.php?lat=${lat}&lng=${lon}`,
+          type: "GET",
+          dataType: "json",
+        });
+
+        const currencyCode = countryAndCurrencyData.currencyCode;
+
+        if (exchangeRates && exchangeRates.rates) {
+          globalExchangeRates = exchangeRates.rates; // Update the global variable
+
+          // Populate currency dropdowns
+          const fromCurrencyDropdown = $("#from-currency");
+          const toCurrencyDropdown = $("#to-currency");
+          fromCurrencyDropdown.empty();
+          toCurrencyDropdown.empty();
+
+          Object.keys(exchangeRates.rates).forEach((currencyCode) => {
+            fromCurrencyDropdown.append(new Option(currencyCode, currencyCode));
+            toCurrencyDropdown.append(new Option(currencyCode, currencyCode));
+          });
+
+          // Set initial values
+          fromCurrencyDropdown.val("GBP");
+          toCurrencyDropdown.val(currencyCode);
+
+          // Show the modal
+          $("#currency-conversion-modal").modal("show");
+        } else {
+          console.error("No exchange rate data found.");
+        }
+      } catch (error) {
+        console.error("Error fetching data: ", error);
+      }
+    }
+
+    // Function to set initial values for the dropdowns
+    async function setInitialDropdownValues() {
+      $("#from-currency").val("GBP"); // Set "From" currency to GBP
+
+      // Get the country code for the map's central coordinates
+      const center = mapHandler.map.getCenter();
+      const lat = center.lat.toFixed(6);
+      const lon = center.lng.toFixed(6);
+
+      // Fetch country code and name based on latitude and longitude
+      const geoResult = await $.ajax({
+        url: `./php/fetch_geonames.php?lat=${lat}&lng=${lon}`,
+        type: "GET",
+        dataType: "json",
+      });
+
+      const { countryCode, countryName } = geoResult;
+
+      console.log(`Fetched country code: ${countryCode}`);
+
+      if (countryCode) {
+        // Check if the fetched countryCode exists in the dropdown options
+        const exists = $("#to-currency option")
+          .toArray()
+          .some((option) => $(option).val() === countryCode);
+        console.log(`Does the country code exist in the dropdown? ${exists}`);
+
+        if (exists) {
+          // Set "To" currency based on the country code of the map's central coordinates
+          $("#to-currency").val(countryCode);
+        }
+      } else {
+        console.error("No country code found.");
+      }
+    }
+
+    // Your existing form submission handling code
+    $("#currency-converter-form").submit(function (event) {
+      event.preventDefault();
+      if (!globalExchangeRates) {
+        console.error("Exchange rates not available");
+        return;
+      }
+
+      const fromCurrency = $("#from-currency").val();
+      const toCurrency = $("#to-currency").val();
+      const amount = $("#amount").val();
+
+      // Use globalExchangeRates here
+      const rate =
+        globalExchangeRates[toCurrency] / globalExchangeRates[fromCurrency];
+      const convertedAmount = amount * rate;
+
+      $("#conversion-result").text(
+        `${amount} ${fromCurrency} is equal to ${convertedAmount.toFixed(
+          2
+        )} ${toCurrency}`
+      );
     });
 
     // current zoom
