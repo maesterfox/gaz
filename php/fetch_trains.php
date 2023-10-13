@@ -7,17 +7,17 @@ $lon = $_GET['lon'];
 $radius = 50000;  // in meters
 
 $url = "https://maps.googleapis.com/maps/api/place/textsearch/json?"
-	. "query=airports"
-	. "&location=$lat,$lon"
-	. "&radius=$radius"
-	. "&key=$api_key";
+    . "query=trainstations"
+    . "&location=$lat,$lon"
+    . "&radius=$radius"
+    . "&key=$api_key";
 
 $response = file_get_contents($url);
 
 if ($response === FALSE) {
-	header('Content-Type: application/json');
-	echo json_encode(['error' => 'Failed to fetch airport data']);
-	exit;
+    header('Content-Type: application/json');
+    echo json_encode(['error' => 'Failed to fetch train station data']);
+    exit;
 }
 
 header('Content-Type: application/json');

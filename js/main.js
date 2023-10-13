@@ -176,6 +176,16 @@ class GeoNamesAPI extends APIHandler {
 
 let userLocationMarker = null;
 
+const airportIcon = L.icon({
+  iconUrl: "./plane.gif",
+  iconSize: [32, 32], // size of the icon
+});
+
+const trainStationIcon = L.icon({
+  iconUrl: "./train.gif",
+  iconSize: [32, 32], // size of the icon
+});
+
 // MapHandler Class
 class MapHandler {
   constructor(mapId) {
@@ -186,6 +196,8 @@ class MapHandler {
     this.currentCountryName = null;
     this.singleMarker = null; // Initialize to null
     this.airportLayer = L.layerGroup(); // Initialize airport layer
+    this.trainStationLayer = L.layerGroup(); // Initialize train station layer
+
     this.pointdata = L.layerGroup(); // Initialize this as per your requirement
     this.linedata = L.layerGroup(); // Initialize this as per your requirement
     this.polygondata = L.layerGroup(); // Initialize this as per your requirement
@@ -207,6 +219,8 @@ class MapHandler {
     this.initializeMap();
     this.initializeButtons();
     this.fetchAndSetUserLocation();
+    console.log("fetchAndSetUserLocation is called");
+
     this.initializeLayerControl();
   }
 
@@ -220,11 +234,21 @@ class MapHandler {
 
     const overlayMaps = {
       Airports: this.airportLayer,
+      TrainStations: this.trainStationLayer, // Add this line
     };
 
     L.control
       .layers(baseMaps, overlayMaps, { position: "topright" })
       .addTo(this.map);
+
+    this.map.on("overlayadd overlayremove", async (event) => {
+      if (event.name === "Airports") {
+        await this.toggleAirportsLayer(event.type === "overlayadd");
+      } else if (event.name === "TrainStations") {
+        // Add this block
+        await this.toggleTrainStationsLayer(event.type === "overlayadd");
+      }
+    });
   }
 
   initializeMap() {
@@ -238,14 +262,78 @@ class MapHandler {
     this.addUserLocationButton(); // Add this line
   }
 
-  fetchAirports(country, lang) {
-    console.log("Country and Lang before fetch:", country, lang);
+  async fetchCountryDataForCentralLocation(lat, lon) {
+    try {
+      // Fetch country code and name based on latitude and longitude
+      const geoResult = await $.ajax({
+        url: `./php/fetch_geonames.php?lat=${lat}&lng=${lon}`,
+        type: "GET",
+        dataType: "json",
+      });
+      console.log(geoResult);
+      console.log(`Latitude: ${lat}, Longitude: ${lon}`);
 
-    const url = `./php/fetch_airports.php?country=${country}&lang=${lang}`;
-    console.log("URL being used:", url); // Add this line
+      return geoResult;
+    } catch (error) {
+      console.error("Error fetching country data:", error);
+      return {};
+    }
+  }
+
+  // Method to toggle the Airports layer on or off
+  async toggleAirportsLayer(show) {
+    if (show) {
+      // Fetch the current country based on central coordinates
+      const center = this.map.getCenter();
+      const lat = center.lat.toFixed(6);
+      const lon = center.lng.toFixed(6);
+
+      // Fetch country data using fetchCountryDataForCentralLocation
+      const countryData = await this.fetchCountryDataForCentralLocation(
+        lat,
+        lon
+      );
+
+      // Specify the desired maximum number of rows
+      const maxRows = 50;
+
+      // Fetch airports data based on the country code, language, and maximum rows
+      const airportsData = await this.fetchAirports("en", lat, lon, maxRows);
+
+      // Check if airportsData contains valid data
+      if (
+        Array.isArray(airportsData.results) &&
+        airportsData.results.length > 0
+      ) {
+        // Extract and process airport data from the response
+        const airports = airportsData.results.map((result) => ({
+          lat: result.geometry.location.lat,
+          lon: result.geometry.location.lng,
+          name: result.name,
+        }));
+
+        // Populate this.airportLayer with the extracted airport data
+        airports.forEach((airport) => {
+          const marker = L.marker([airport.lat, airport.lon], {
+            icon: airportIcon,
+          }).bindPopup(airport.name);
+          this.airportLayer.addLayer(marker);
+        });
+      } else {
+        console.error("No airport data found.");
+        console.log(`Fetching airports for country code: ${countryCode}`);
+      }
+    } else {
+      // Remove existing airport markers from the layer
+      this.airportLayer.clearLayers();
+    }
+  }
+
+  // Modify fetchAirports to accept maxRows as a parameter
+  fetchAirports(lang, lat, lon, maxRows) {
     return new Promise((resolve, reject) => {
       $.ajax({
-        url: url,
+        url: `./php/fetch_airports.php?lang=${lang}&lat=${lat}&lon=${lon}&maxRows=${maxRows}`,
         type: "GET",
         dataType: "json",
         success: (result) => {
@@ -258,12 +346,64 @@ class MapHandler {
     });
   }
 
-  // This function displays airports on the map.
-  fetchAirports(country, lang) {
-    const url = `./php/fetch_airports.php?country=${country}&lang=${lang}`;
+  // New method to toggle the TrainStations layer on or off
+  async toggleTrainStationsLayer(show) {
+    if (show) {
+      // Fetch the current country based on central coordinates
+      const center = this.map.getCenter();
+      const lat = center.lat.toFixed(6);
+      const lon = center.lng.toFixed(6);
+
+      // Fetch country data using fetchCountryDataForCentralLocation (if needed)
+      const countryData = await this.fetchCountryDataForCentralLocation(
+        lat,
+        lon
+      );
+
+      // Specify the desired maximum number of rows
+      const maxRows = 50;
+
+      // Fetch train stations data based on the language, latitude, longitude, and maximum rows
+      const trainStationsData = await this.fetchTrainStations(
+        "en",
+        lat,
+        lon,
+        maxRows
+      );
+
+      // Check if trainStationsData contains valid data
+      if (
+        Array.isArray(trainStationsData.results) &&
+        trainStationsData.results.length > 0
+      ) {
+        // Extract and process train station data from the response
+        const trainStations = trainStationsData.results.map((result) => ({
+          lat: result.geometry.location.lat,
+          lon: result.geometry.location.lng,
+          name: result.name,
+        }));
+
+        // Populate this.trainStationLayer with the extracted train station data
+        trainStations.forEach((station) => {
+          const marker = L.marker([station.lat, station.lon], {
+            icon: trainStationIcon,
+          }).bindPopup(station.name);
+          this.trainStationLayer.addLayer(marker);
+        });
+      } else {
+        console.error("No train station data found.");
+      }
+    } else {
+      // Remove existing train station markers from the layer
+      this.trainStationLayer.clearLayers();
+    }
+  }
+
+  // Modify fetchTrainStations to accept maxRows as a parameter
+  fetchTrainStations(lang, lat, lon, maxRows) {
     return new Promise((resolve, reject) => {
       $.ajax({
-        url: url,
+        url: `./php/fetch_trains.php?lang=${lang}&lat=${lat}&lon=${lon}&maxRows=${maxRows}`,
         type: "GET",
         dataType: "json",
         success: (result) => {
@@ -280,29 +420,17 @@ class MapHandler {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
-        this.map.setView([latitude, longitude], 6);
+        this.map.setView([latitude, longitude], 5);
 
         // Create and set the singleMarker
         this.singleMarker = L.marker([latitude, longitude]).addTo(this.map);
         this.singleMarker.bindPopup("You are here").openPopup();
 
-        // Fetch the country code based on the user's latitude and longitude
-        $.ajax({
-          url: `php/fetch_geonames.php?lat=${latitude}&lng=${longitude}`,
-          type: "GET",
-          dataType: "json",
-          success: (data) => {
-            console.log(data);
-            const { countryCode, countryName } = data;
-            if (countryName) {
-              // Use the countryName to fetch and display the border
-              this.fetchAndDisplayCountryBorder(null, countryName);
-            }
-          },
-          error: (error) => {
-            console.error("Could not fetch country code:", error);
-          },
-        });
+        // Use "GBR" as the country code for the United Kingdom
+        const countryCode = "GBR";
+
+        // Fetch and display the border
+        this.fetchAndDisplayCountryBorder(countryCode);
       },
       (error) => {
         console.error("Could not fetch user location:", error);
@@ -311,25 +439,20 @@ class MapHandler {
   }
 
   // Function to fetch and display country border
-  fetchAndDisplayCountryBorder(countryCode, countryName) {
-    console.log(countryCode, countryName);
+  fetchAndDisplayCountryBorder(countryCode) {
+    console.log(countryCode);
 
-    // Prioritize using countryName if available
-    const countryIdentifier = countryName || countryCode;
-
-    if (!countryIdentifier) {
-      console.error("Invalid country identifier");
+    if (!countryCode) {
+      console.error("Invalid country code");
       return;
     }
 
     // Load the GeoJSON file
     $.ajax({
-      url: `./php/fetch_country_border.php`, // Adjust the URL as needed
+      url: `./php/fetch_country_border.php?countryCode=${countryCode}`, // Adjust the URL as needed
       type: "GET",
-      data: { countryCode: countryCode, countryName: countryName },
       dataType: "json",
       success: (result) => {
-        console.log(countryIdentifier);
         console.log("Server response:", result);
 
         // Check if the result has the expected structure
@@ -554,7 +677,7 @@ let currentCountryInfo = {};
 
           const [lng, lat] = countryFeature.geometry.coordinates;
           wikidata = countryFeature.properties.wikidata;
-          mapHandler.map.setView([lat, lng], 5);
+          mapHandler.map.setView([lat, lng], 6);
         },
         error: function (error) {
           console.error("Error fetching location data: ", error);
