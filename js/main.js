@@ -1,3 +1,4 @@
+// Loader
 $(window).on("load", function () {
   if ($("#preloader").length) {
     $("#preloader")
@@ -15,83 +16,125 @@ const OPEN_STREET_MAP_URL =
 const GOOGLE_SATELLITE_URL =
   "http://www.google.cn/maps/vt?lyrs=s@189&gl=cn&x={x}&y={y}&z={z}";
 
-// Class to handle AJAX calls
+// Class to centralize AJAX operations
 class APIHandler {
-  // Function to make an AJAX call and return a promise
+  // Method to execute a generic AJAX call and return a promise
   makeAjaxCall(url, type, dataType, data) {
     return new Promise((resolve, reject) => {
-      // Perform the AJAX call
+      // Execute the AJAX request
       $.ajax({
         url: url,
         type: type,
         dataType: dataType,
         data: data,
-        // Resolve the promise on successful AJAX call
-        success: (result) => {
-          resolve(result);
-        },
-        // Reject the promise on error
-        error: (error) => {
-          reject(error);
-        },
+        // Fulfill the promise upon a successful AJAX call
+        success: resolve,
+        // Reject the promise upon an error
+        error: reject,
       });
     });
+  }
+
+  // Method to execute an AJAX call with URL parameters and return a promise
+  makeParameterizedAjaxCall(url, params) {
+    return new Promise((resolve, reject) => {
+      // Construct the full URL with parameters
+      const fullUrl = `${url}?${$.param(params)}`;
+      // Execute the AJAX request
+      $.ajax({
+        url: fullUrl,
+        type: "GET",
+        dataType: "json",
+        // Fulfill the promise upon a successful AJAX call
+        success: resolve,
+        // Reject the promise upon an error
+        error: reject,
+      });
+    });
+  }
+
+  // Generic easyButton function
+  addButton(map, stateName, icon, title, onClickHandler) {
+    L.easyButton({
+      states: [
+        {
+          stateName: stateName,
+          icon: icon,
+          title: title,
+          onClick: (btn, mapInstance) => {
+            onClickHandler(btn, mapInstance);
+          },
+        },
+      ],
+    }).addTo(map);
   }
 }
 
 // Class to handle weather-related API calls
 class WeatherAPI extends APIHandler {
-  // Function to fetch weather data for the central location of the map
+  constructor() {
+    super();
+    // to improve the performance of your application by minimizing redundant API calls
+    this.dataCache = {}; // Initialize empty cache
+  }
+
   async fetchWeatherForCentralLocation(map) {
-    try {
-      const center = map.getCenter();
-      const lat = center.lat;
-      const lon = center.lng;
+    const center = map.getCenter();
+    const lat = center.lat;
+    const lon = center.lng;
+    const cacheKey = `${lat.toFixed(6)}:${lon.toFixed(6)}`; // Create a unique cache key
 
-      // Make an AJAX call to fetch weather data
-      const data = await this.makeAjaxCall(
-        "./php/fetch_weather.php",
-        "GET",
-        "json",
-        { lat: lat, lon: lon }
-      );
-
-      // Log the weather data received from the AJAX call
-      console.log("Weather data:", data.weatherData);
-
-      if (data.weatherData) {
-        const weatherInfo = data.weatherData;
-        const weatherModal = $("#weather-modal");
-        const kelvinTemp = weatherInfo.main.temp;
-        const celsiusTemp = (kelvinTemp - 273.15).toFixed(2);
-        // Convert temperature from Kelvin to Celsius and Fahrenheit
-        const fahrenheitTemp = ((celsiusTemp * 9) / 5 + 32).toFixed(2);
-        const iconCode = weatherInfo.weather[0].icon; // Assuming the icon code is in the first element of the 'weather' array
-        const iconUrl = `http://openweathermap.org/img/wn/${iconCode}.png`;
-
-        // Update the weather modal with weather details
-        $("#weather1").html(
-          `<img src="${iconUrl}" width="150" height="150">
-   <h3>${weatherInfo.name}, ${weatherInfo.sys.country}</h3>`
-        );
-        $("#weather2").html(
-          `<p>Temperature: ${celsiusTemp}°C / ${fahrenheitTemp}°F</p>`
-        );
-        $("#weather3").html(`<p>Humidity: ${weatherInfo.main.humidity}%</p>`);
-
-        $("#weather4").html(
-          `<h4>Current Weather: ${weatherInfo.weather[0].description}</h4>`
-        );
-        $("#weather5").html(`<p>Wind: ${weatherInfo.wind.speed} mph</p>`);
-        $("#weather6").html(`<p>Clouds: ${weatherInfo.clouds.all}</p>`);
-
-        weatherModal.modal("show");
-      } else {
-        console.log("Weather data is not available.");
-      }
-    } catch (error) {
-      console.error("Error fetching data: ", error);
+    // Check cache
+    if (this.dataCache[cacheKey]) {
+      return this.dataCache[cacheKey]; // Return cached data if available
     }
+
+    // Make an API call if data is not in cache
+    const data = await this.makeAjaxCall(
+      "./php/fetch_weather.php",
+      "GET",
+      "json",
+      { lat: lat, lon: lon }
+    );
+
+    this.dataCache[cacheKey] = data; // Store data in cache
+
+    // Log the weather data received from the AJAX call
+    console.log("Weather data:", data.weatherData);
+
+    if (data.weatherData) {
+      const weatherInfo = data.weatherData;
+      const weatherModal = $("#weather-modal");
+      const kelvinTemp = weatherInfo.main.temp;
+      const celsiusTemp = (kelvinTemp - 273.15).toFixed(2);
+      // Convert temperature from Kelvin to Celsius and Fahrenheit
+      const fahrenheitTemp = ((celsiusTemp * 9) / 5 + 32).toFixed(2);
+      const iconCode = weatherInfo.weather[0].icon; // Assuming the icon code is in the first element of the 'weather' array
+      const iconUrl = `http://openweathermap.org/img/wn/${iconCode}.png`;
+
+      // Update the weather modal with weather details
+      $("#weather1").html(
+        `<img src="${iconUrl}" width="150" height="150">
+   <h3>${weatherInfo.name}, ${weatherInfo.sys.country}</h3>`
+      );
+      $("#weather2").html(
+        `<p>Temperature: ${celsiusTemp}°C / ${fahrenheitTemp}°F</p>`
+      );
+      $("#weather3").html(`<p>Humidity: ${weatherInfo.main.humidity}%</p>`);
+
+      $("#weather4").html(
+        `<h4>Current Weather: ${weatherInfo.weather[0].description}</h4>`
+      );
+      $("#weather5").html(`<p>Wind: ${weatherInfo.wind.speed} mph</p>`);
+      $("#weather6").html(`<p>Clouds: ${weatherInfo.clouds.all}</p>`);
+
+      weatherModal.modal("show");
+    } else {
+      console.log("Weather data is not available.");
+    }
+  }
+  catch(error) {
+    console.error("Error fetching data: ", error);
   }
 }
 
@@ -187,29 +230,21 @@ const trainStationIcon = L.icon({
 });
 
 // MapHandler Class
-class MapHandler {
+class MapHandler extends APIHandler {
   constructor(mapId) {
-    this.map = L.map(mapId);
-    this.userLocation = null;
-    this.countryBorder = null;
-    this.userLocationMarker = null;
+    super(); // Call super before using 'this'
+    this.map = L.map(mapId); // Now it's okay to use 'this'
+    this.dataCache = {};
     this.currentCountryName = null;
     this.singleMarker = null; // Initialize to null
     this.airportLayer = L.layerGroup(); // Initialize airport layer
     this.trainStationLayer = L.layerGroup(); // Initialize train station layer
-
-    this.pointdata = L.layerGroup(); // Initialize this as per your requirement
-    this.linedata = L.layerGroup(); // Initialize this as per your requirement
-    this.polygondata = L.layerGroup(); // Initialize this as per your requirement
     this.standardLayer = L.tileLayer(OPEN_STREET_MAP_URL, {
       maxZoom: 19,
     }).addTo(this.map);
     this.satelliteLayer = L.tileLayer(GOOGLE_SATELLITE_URL, { maxZoom: 19 });
     this.weatherAPI = new WeatherAPI();
-    this.wikipediaAPI = new WikipediaAPI();
-    this.geoNamesAPI = new GeoNamesAPI();
     this.locationCache = {};
-
     this.geoJsonLayer = null; // Add this line to store the GeoJSON layer
     this.init();
   }
@@ -256,22 +291,82 @@ class MapHandler {
   }
 
   initializeButtons() {
-    this.addWeatherButton();
-    this.addWikiButton();
+    // User Location Button
+    this.addButton(
+      this.map,
+      "get-user-location",
+      "fa-location-arrow",
+      "Find Me",
+      (btn, map) => {
+        this.fetchAndSetUserLocation();
+
+        // Update the country information modal
+        // This assumes that `currentCountryInfo` is updated inside `fetchAndSetUserLocation()`
+        if (currentCountryInfo.title) {
+          // Populate the modal using currentCountryInfo
+          $("#countryInfoModalLabel").text(currentCountryInfo.title);
+          $("#country-title").html(`<h3>${currentCountryInfo.title}</h3>`);
+          $("#country-description").html(
+            `<p>Description: ${currentCountryInfo.description}</p>`
+          );
+          $("#country-population").html(
+            `<p>Population: ${currentCountryInfo.population}</p>`
+          );
+          $("#country-flag").html(
+            `<img src="${currentCountryInfo.flag}" alt="Flag of ${currentCountryInfo.title}" width="100">`
+          );
+        }
+      }
+    );
+
+    // Wikipedia Button
+    this.addButton(
+      this.map,
+      "fetch-wikipedia",
+      '<img src="wiki.gif" width="20" height="20">',
+      "Fetch Wikipedia Info",
+      (btn, map) => {
+        const wikipediaAPI = new WikipediaAPI();
+        wikipediaAPI.fetchWikipediaForCentralLocation(map);
+      }
+    );
+
     this.addNewsButton(); // Initialize the news button
-    this.addUserLocationButton(); // Add this line
+
+    // Weather Button
+    this.addButton(
+      this.map,
+      "show-weather",
+      '<img src="weather.gif" width="20" height="20">',
+      "Toggle Weather",
+      (btn, map) => {
+        this.weatherAPI.fetchWeatherForCentralLocation(
+          this.map,
+          this.locationCache
+        );
+      }
+    );
   }
 
+  // Central location function
+
   async fetchCountryDataForCentralLocation(lat, lon) {
+    const cacheKey = `${lat},${lon}`;
+
+    // Check if data is in cache first
+    if (this.dataCache[cacheKey]) {
+      return this.dataCache[cacheKey];
+    }
+
     try {
-      // Fetch country code and name based on latitude and longitude
       const geoResult = await $.ajax({
         url: `./php/fetch_geonames.php?lat=${lat}&lng=${lon}`,
         type: "GET",
         dataType: "json",
       });
-      console.log(geoResult);
-      console.log(`Latitude: ${lat}, Longitude: ${lon}`);
+
+      // Store the result in cache
+      this.dataCache[cacheKey] = geoResult;
 
       return geoResult;
     } catch (error) {
@@ -329,21 +424,10 @@ class MapHandler {
     }
   }
 
-  // Modify fetchAirports to accept maxRows as a parameter
+  // Fetch Airports
   fetchAirports(lang, lat, lon, maxRows) {
-    return new Promise((resolve, reject) => {
-      $.ajax({
-        url: `./php/fetch_airports.php?lang=${lang}&lat=${lat}&lon=${lon}&maxRows=${maxRows}`,
-        type: "GET",
-        dataType: "json",
-        success: (result) => {
-          resolve(result);
-        },
-        error: (error) => {
-          reject(error);
-        },
-      });
-    });
+    const params = { lang, lat, lon, maxRows };
+    return this.makeParameterizedAjaxCall("./php/fetch_airports.php", params);
   }
 
   // New method to toggle the TrainStations layer on or off
@@ -401,19 +485,8 @@ class MapHandler {
 
   // Modify fetchTrainStations to accept maxRows as a parameter
   fetchTrainStations(lang, lat, lon, maxRows) {
-    return new Promise((resolve, reject) => {
-      $.ajax({
-        url: `./php/fetch_trains.php?lang=${lang}&lat=${lat}&lon=${lon}&maxRows=${maxRows}`,
-        type: "GET",
-        dataType: "json",
-        success: (result) => {
-          resolve(result);
-        },
-        error: (error) => {
-          reject(error);
-        },
-      });
-    });
+    const params = { lang, lat, lon, maxRows };
+    return this.makeParameterizedAjaxCall("./php/fetch_trains.php", params);
   }
 
   fetchAndSetUserLocation() {
@@ -490,73 +563,6 @@ class MapHandler {
         console.error("Full response object:", jqXHR);
       },
     });
-  }
-
-  addUserLocationButton() {
-    L.easyButton({
-      states: [
-        {
-          stateName: "get-user-location",
-          icon: "fa-location-arrow",
-          title: "Find Me",
-          onClick: (btn, map) => {
-            // Fetch and set user's location
-            this.fetchAndSetUserLocation();
-
-            // Update the country information modal
-            // This assumes that `currentCountryInfo` is updated inside `fetchAndSetUserLocation()`
-            if (currentCountryInfo.title) {
-              // Populate the modal using currentCountryInfo
-              $("#countryInfoModalLabel").text(currentCountryInfo.title);
-              $("#country-title").html(`<h3>${currentCountryInfo.title}</h3>`);
-              $("#country-description").html(
-                `<p>Description: ${currentCountryInfo.description}</p>`
-              );
-              $("#country-population").html(
-                `<p>Population: ${currentCountryInfo.population}</p>`
-              );
-              $("#country-flag").html(
-                `<img src="${currentCountryInfo.flag}" alt="Flag of ${currentCountryInfo.title}" width="100">`
-              );
-            }
-          },
-        },
-      ],
-    }).addTo(this.map);
-  }
-
-  addWikiButton() {
-    L.easyButton({
-      states: [
-        {
-          stateName: "fetch-wikipedia",
-          icon: '<img src="wiki.gif" width="20" height="20">',
-          title: "Fetch Wikipedia Info",
-          onClick: (btn, map) => {
-            const wikipediaAPI = new WikipediaAPI(); // Create an instance of WikipediaAPI
-            wikipediaAPI.fetchWikipediaForCentralLocation(map);
-          },
-        },
-      ],
-    }).addTo(this.map);
-  }
-
-  addWeatherButton() {
-    L.easyButton({
-      states: [
-        {
-          stateName: "show-weather",
-          icon: '<img src="weather.gif" width="20" height="20">',
-          title: "Toggle Weather",
-          onClick: (btn, map) => {
-            this.weatherAPI.fetchWeatherForCentralLocation(
-              this.map,
-              this.locationCache
-            );
-          },
-        },
-      ],
-    }).addTo(this.map);
   }
 
   addNewsButton() {
@@ -772,16 +778,14 @@ let currentCountryInfo = {};
             fetchAndDisplayCurrencyConversion();
           },
           title: "Show currency conversion",
-          icon: "fa-exchange-alt", // Font Awesome icon for currency exchange
+          icon: "fa-exchange-alt",
         },
       ],
     });
 
     currencyConversionButton.addTo(mapHandler.map); // Add the button to the map
 
-    // Function to fetch and display currency conversion
-    let result = null; // Declare result variable to store exchange rates globally
-    let globalExchangeRates = null; // Declare at the top-level scope of your script
+    let globalExchangeRates = null;
 
     // Function to fetch and display currency conversion
     async function fetchAndDisplayCurrencyConversion() {
@@ -890,6 +894,8 @@ let currentCountryInfo = {};
         )} ${toCurrency}`
       );
     });
+
+    //////////////////////////////////
 
     // current zoom
     mapHandler.map.on("zoomend", function () {
