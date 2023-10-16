@@ -45,9 +45,7 @@ class APIHandler {
         url: fullUrl,
         type: "GET",
         dataType: "json",
-        // Fulfill the promise upon a successful AJAX call
         success: resolve,
-        // Reject the promise upon an error
         error: reject,
       });
     });
@@ -871,7 +869,7 @@ let currentCountryInfo = {};
       }
     }
 
-    // Your existing form submission handling code
+    // Form submission handling code
     $("#currency-converter-form").submit(function (event) {
       event.preventDefault();
       if (!globalExchangeRates) {
@@ -883,7 +881,7 @@ let currentCountryInfo = {};
       const toCurrency = $("#to-currency").val();
       const amount = $("#amount").val();
 
-      // Use globalExchangeRates here
+      // GlobalExchangeRates here
       const rate =
         globalExchangeRates[toCurrency] / globalExchangeRates[fromCurrency];
       const convertedAmount = amount * rate;
