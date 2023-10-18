@@ -1,204 +1,235 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <!-- Standard Meta Tags -->
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Gazetteer is a comprehensive map and geo-information portal. Find locations, weather, and more.">
-<meta name="keywords" content="Gazetteer, Map, Geo, Location, Weather, Navigation">
-<meta name="author" content="David Fox">
-
-<!-- Social Media Meta Tags (Open Graph & Twitter Cards) -->
-<meta property="og:title" content="Gazetteer: Your Ultimate Map and Geo-Information Portal">
-<meta property="og:description" content="Explore locations, get real-time weather updates, and much more with Gazetteer.">
-<meta property="og:image" content="logo.png">
-<meta property="og:url" content="https://davidfoxdev.com/gaz">
-
-    <link rel="icon" type="image/png" href="icon.png">
-
-    <!-- Stylesheets -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-search@3.0.2/dist/leaflet-search.min.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.EasyButton/2.4.0/easy-button.css">
-    <link rel="stylesheet" href="./css/css.css">
-
-    <title>Gazetteer</title>
-</head>
-
- 
-  <body class="m-0">
-    <nav class="navbar navbar-expand-lg navbar-dark">
-      <img src="logo.png" alt="MapApp Logo" class="navbar-logo">
-      <h1 class="navbar-brand"></h1>
-      <div id="zoom-display" class="mx-auto">Zoom: 10</div>
-      
-      <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-        <span class="navbar-toggler-icon"></span>
+ <head>
+  <!-- Standard Meta Tags -->
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <meta content="Gazetteer is a comprehensive map and geo-information portal. Find locations, weather, and more." name="description"/>
+  <meta content="Gazetteer, Map, Geo, Location, Weather, Navigation" name="keywords"/>
+  <meta content="David Fox" name="author"/>
+  <!-- Social Media Meta Tags (Open Graph & Twitter Cards) -->
+  <meta content="Gazetteer: Your Ultimate Map and Geo-Information Portal" property="og:title"/>
+  <meta content="Explore locations, get real-time weather updates, and much more with Gazetteer." property="og:description"/>
+  <meta content="logo.png" property="og:image"/>
+  <meta content="https://davidfoxdev.com/gaz" property="og:url"/>
+  <link href="icon.png" rel="icon" type="image/png"/>
+  <!-- Stylesheets -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet"/>
+  <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.css" rel="stylesheet"/>
+  <link href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" rel="stylesheet">
+   <link href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" rel="stylesheet">
+    <link href="https://unpkg.com/leaflet-search@3.0.2/dist/leaflet-search.min.css" rel="stylesheet">
+     <link href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.EasyButton/2.4.0/easy-button.css" rel="stylesheet"/>
+     <link href="./css/css.css" rel="stylesheet"/>
+     <title>
+      Gazetteer
+     </title>
+    </link>
+   </link>
+  </link>
+ </head>
+ <body class="m-0">
+  <nav class="navbar navbar-expand-lg navbar-dark">
+   <img alt="MapApp Logo" class="navbar-logo" src="logo.png"/>
+   <h1 class="navbar-brand">
+   </h1>
+   <div class="mx-auto" id="zoom-display">
+    Zoom: 10
+   </div>
+   <button aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation" class="navbar-toggler" data-target="#navbarNav" data-toggle="collapse" type="button">
+    <span class="navbar-toggler-icon">
+    </span>
+   </button>
+   <div class="collapse navbar-collapse" id="navbarNav">
+    <form class="form-inline my-2 my-lg-0 ml-auto">
+     <!-- Continent dropdown removed -->
+     <select aria-label="Select Country" class="form-control mr-sm-2" id="country-select">
+      <option disabled="" selected="" value="">
+       Select Country
+      </option>
+      <!-- Country options will be populated here -->
+     </select>
+     <button class="btn btn-outline-primary my-2 my-sm-0" id="search-button" type="button">
+      Search
+     </button>
+    </form>
+   </div>
+  </nav>
+  <div id="preloader">
+  </div>
+  <!-- News Information Modal -->
+  <div aria-hidden="true" aria-labelledby="newsInfoModalLabel" class="modal fade" id="news-info-modal" tabindex="-1">
+   <div class="modal-dialog">
+    <div class="modal-content custom-navy-bg">
+     <div class="modal-header">
+      <h5 class="modal-title" id="newsInfoModalLabel">
+       News Information
+      </h5>
+      <button aria-label="Close" class="close" data-dismiss="modal" type="button">
+       <span aria-hidden="true">
+        ×
+       </span>
       </button>
-      <div class="collapse navbar-collapse" id="navbarNav">
-        <form class="form-inline my-2 my-lg-0 ml-auto">
-          <!-- Continent dropdown removed -->
-          <select class="form-control mr-sm-2" id="country-select" aria-label="Select Country">
-            <option value="" disabled selected>Select Country</option>
-            <!-- Country options will be populated here -->
-          </select>
-          <button class="btn btn-outline-primary my-2 my-sm-0" type="button" id="search-button">Search</button>
-        </form>
-      </div>
-    </nav>
-    
-    
-    <div id="preloader"></div>
-  
-<!-- News Information Modal -->
-<div class="modal fade" id="news-info-modal" tabindex="-1" aria-labelledby="newsInfoModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content custom-navy-bg">
-      <div class="modal-header">
-        <h5 class="modal-title" id="newsInfoModalLabel">News Information</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body" id="news-data">
-        <!-- Dynamic news articles will be inserted here -->
-      </div>
+     </div>
+     <div class="modal-body" id="news-data">
+      <!-- Dynamic news articles will be inserted here -->
+     </div>
     </div>
+   </div>
   </div>
-</div>
-
-
-
-<!-- Wikipedia History Modal -->
-<div class="modal fade" id="wikipedia-history-modal" tabindex="-1" aria-labelledby="wikipediaHistoryModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
+  <!-- Wikipedia History Modal -->
+  <div aria-hidden="true" aria-labelledby="wikipediaHistoryModalLabel" class="modal fade" id="wikipedia-history-modal" tabindex="-1">
+   <div class="modal-dialog">
     <div class="modal-content custom-navy-bg">
-      <div class="modal-header">
-        <h5 class="modal-title" id="wikipediaHistoryModalLabel">Wikipedia History</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body" id="country-history">
-        <!-- Country historical data from Wikipedia will be inserted here -->
-      </div>
+     <div class="modal-header">
+      <h5 class="modal-title" id="wikipediaHistoryModalLabel">
+       Wikipedia History
+      </h5>
+      <button aria-label="Close" class="close" data-dismiss="modal" type="button">
+       <span aria-hidden="true">
+        ×
+       </span>
+      </button>
+     </div>
+     <div class="modal-body" id="country-history">
+      <!-- Country historical data from Wikipedia will be inserted here -->
+     </div>
     </div>
+   </div>
   </div>
-</div>
-
-
-<!-- Currency Conversion Modal -->
-<div class="modal fade" id="currency-conversion-modal" tabindex="-1" aria-labelledby="currencyConversionModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
+  <!-- Currency Conversion Modal -->
+  <div aria-hidden="true" aria-labelledby="currencyConversionModalLabel" class="modal fade" id="currency-conversion-modal" tabindex="-1">
+   <div class="modal-dialog">
     <div class="modal-content custom-navy-bg">
-      <div class="modal-header">
-        <h4 class="modal-title" id="currency-title"></h4>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body">
-        <form id="currency-converter-form">
-          <div class="form-group">
-            <label for="from-currency">From Currency</label>
-            <select class="form-control" id="from-currency"></select>
-          </div>
-          <div class="form-group">
-            <label for="to-currency">To Currency</label>
-            <select class="form-control" id="to-currency"></select>
-          </div>
-          <div class="form-group">
-            <label for="amount">Sum to convert</label>
-            <input type="number" class="form-control" id="amount" placeholder="Conversion">
-          </div>
-          <button type="submit" class="btn btn-primary">Convert</button>
-        </form>
-        <p id="conversion-result"></p>
-      </div>
+     <div class="modal-header">
+      <h4 class="modal-title" id="currency-title">
+      </h4>
+      <button aria-label="Close" class="close" data-dismiss="modal" type="button">
+       <span aria-hidden="true">
+        ×
+       </span>
+      </button>
+     </div>
+     <div class="modal-body">
+      <form id="currency-converter-form">
+       <div class="form-group">
+        <label for="from-currency">
+         From Currency
+        </label>
+        <select class="form-control" id="from-currency">
+        </select>
+       </div>
+       <div class="form-group">
+        <label for="to-currency">
+         To Currency
+        </label>
+        <select class="form-control" id="to-currency">
+        </select>
+       </div>
+       <div class="form-group">
+        <label for="amount">
+         Sum to convert
+        </label>
+        <input class="form-control" id="amount" placeholder="Conversion" type="number"/>
+       </div>
+       <button class="btn btn-primary" type="submit">
+        Convert
+       </button>
+      </form>
+      <p id="conversion-result">
+      </p>
+     </div>
     </div>
+   </div>
   </div>
-</div>
-
-
-
-
-
-
-
-
-
-<!-- Country Information Modal -->
-<div class="modal fade" id="country-info-modal" tabindex="-1" aria-labelledby="countryInfoModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
+  <!-- Country Information Modal -->
+  <div aria-hidden="true" aria-labelledby="countryInfoModalLabel" class="modal fade" id="country-info-modal" tabindex="-1">
+   <div class="modal-dialog">
     <!-- Added the custom-navy-bg class -->
     <div class="modal-content custom-navy-bg">
-      <div class="modal-header">
-        <h5 class="modal-title" id="countryInfoModalLabel">Country Information</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
+     <div class="modal-header">
+      <h5 class="modal-title" id="countryInfoModalLabel">
+       Country Information
+      </h5>
+      <button aria-label="Close" class="close" data-dismiss="modal" type="button">
+       <span aria-hidden="true">
+        ×
+       </span>
+      </button>
+     </div>
+     <div class="modal-body">
+      <div id="country-title">
       </div>
-      <div class="modal-body">
-        <div id="country-title"></div>
-        <div id="country-description"></div>
-        <div id="country-population"></div>
-        <div id="country-flag"></div>
+      <div id="country-capital">
       </div>
+      <div id="country-currency">
+      </div>
+      <div id="country-population">
+      </div>
+      <div id="country-flag">
+      </div>
+     </div>
     </div>
+   </div>
   </div>
-</div>
-
-      
-
-      <div id="easy-button-container" class="leaflet-top leaflet-right"></div>
-        
-    <!-- Div containing map element -->
-    <div id="mapid" class="container-fluid h-100"></div>
-
-      <!-- Weather Modal -->
-      <div class="modal fade" id="weather-modal" tabindex="-1" aria-labelledby="weatherModalLabel" aria-hidden="true">
-        <div class="modal-dialog"> <!-- Add the custom-navy-bg class here -->
-          <div class="modal-content custom-navy-bg">
-      <div class="modal-header">
-        <h5 class="modal-title" id="weatherModalLabel">Weather Information</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body">
-        <!-- Insert weather data here -->
-        <p id="weather1"></p>
-        <p id="weather4"></p>
-        <p id="weather3"></p>
-        <p id="weather2"></p>
-        <p id="weather5"></p>
-        <p id="weather6"></p>
-      </div>
+  <div class="leaflet-top leaflet-right" id="easy-button-container">
+  </div>
+  <!-- Div containing map element -->
+  <div class="container-fluid h-100" id="mapid">
+  </div>
+  <!-- Weather Modal -->
+  <div aria-hidden="true" aria-labelledby="weatherModalLabel" class="modal fade" id="weather-modal" tabindex="-1">
+   <div class="modal-dialog">
+    <!-- Add the custom-navy-bg class here -->
+    <div class="modal-content custom-navy-bg">
+     <div class="modal-header">
+      <h5 class="modal-title" id="weatherModalLabel">
+       Weather Information
+      </h5>
+      <button aria-label="Close" class="close" data-dismiss="modal" type="button">
+       <span aria-hidden="true">
+        ×
+       </span>
+      </button>
+     </div>
+     <div class="modal-body">
+      <!-- Insert weather data here -->
+      <p id="weather1">
+      </p>
+      <p id="weather4">
+      </p>
+      <p id="weather3">
+      </p>
+      <p id="weather2">
+      </p>
+      <p id="weather5">
+      </p>
+      <p id="weather6">
+      </p>
+     </div>
     </div>
+   </div>
   </div>
-</div>
-
-<!-- JavaScript Libraries -->
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.1/umd/popper.min.js"></script>
-<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
-<script src="https://unpkg.com/leaflet-search@3.0.2/dist/leaflet-search.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.EasyButton/2.4.0/easy-button.js"></script>
-<script src="https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.js"></script>
-
-<!-- Custom JavaScript -->
-<script src="js/main.js"></script>
-
-      
-  </body>
-
+  <!-- JavaScript Libraries -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js">
+  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.1/umd/popper.min.js">
+  </script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js">
+  </script>
+  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js">
+  </script>
+  <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js">
+  </script>
+  <script src="https://unpkg.com/leaflet-search@3.0.2/dist/leaflet-search.min.js">
+  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.EasyButton/2.4.0/easy-button.js">
+  </script>
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.js">
+  </script>
+  <!-- Custom JavaScript -->
+  <script src="js/main.js">
+  </script>
+ </body>
 </html>
-
-
-

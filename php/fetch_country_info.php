@@ -4,10 +4,11 @@ header("Content-Type: application/json");
 // Fetch country code from the query parameters
 $countryCode = $_GET['countryCode'];
 
-if(!$countryCode) {
+if (!$countryCode) {
   echo json_encode(["error" => "No country code provided"]);
   exit;
 }
+
 
 $apiUrl = "https://restcountries.com/v3.1/alpha/" . $countryCode;
 
@@ -19,7 +20,7 @@ $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 curl_close($ch);
 
 if ($httpCode == 200) {
-    echo $response;
+  echo $response;
 } else {
-    echo json_encode(["error" => "Failed to fetch data, HTTP Code: " . $httpCode]);
+  echo json_encode(["error" => "Failed to fetch data, HTTP Code: " . $httpCode]);
 }

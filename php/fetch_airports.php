@@ -1,5 +1,5 @@
 <?php
-// Replace 'YOUR_API_KEY' with your actual API key
+
 $api_key = 'AIzaSyAgogJFxyczBYpDf5qonOl_AwatS4TYY2Q';
 
 $lat = $_GET['lat'];
@@ -20,5 +20,23 @@ if ($response === FALSE) {
 	exit;
 }
 
-header('Content-Type: application/json');
-echo $response;
+$response_data = json_decode($response, true);
+if (isset($response_data['results'])) {
+	$airports = array();
+	foreach ($response_data['results'] as $result) {
+		$airport = array(
+			'name' => $result['name'],
+			'lat' => $result['geometry']['location']['lat'],
+			'lon' => $result['geometry']['location']['lng'],
+			// Capture additional info here, if available
+			'address' => isset($result['formatted_address']) ? $result['formatted_address'] : '',
+			'rating' => isset($result['rating']) ? $result['rating'] : ''
+		);
+		$airports[] = $airport;
+	}
+	header('Content-Type: application/json');
+	echo json_encode(['results' => $airports]);
+} else {
+	header('Content-Type: application/json');
+	echo json_encode(['error' => 'No results found']);
+}

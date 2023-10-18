@@ -302,7 +302,6 @@ class MapHandler extends APIHandler {
         // This assumes that `currentCountryInfo` is updated inside `fetchAndSetUserLocation()`
         if (currentCountryInfo.title) {
           // Populate the modal using currentCountryInfo
-          $("#countryInfoModalLabel").text(currentCountryInfo.title);
           $("#country-title").html(`<h3>${currentCountryInfo.title}</h3>`);
           $("#country-description").html(
             `<p>Description: ${currentCountryInfo.description}</p>`
@@ -312,6 +311,14 @@ class MapHandler extends APIHandler {
           );
           $("#country-flag").html(
             `<img src="${currentCountryInfo.flag}" alt="Flag of ${currentCountryInfo.title}" width="100">`
+          );
+
+          // Add these lines to populate the capital and currency
+          $("#country-capital").html(
+            `<p>Capital: ${currentCountryInfo.capital}</p>`
+          );
+          $("#country-currency").html(
+            `<p>Currency: ${currentCountryInfo.currency}</p>`
           );
         }
       }
@@ -400,21 +407,29 @@ class MapHandler extends APIHandler {
       ) {
         // Extract and process airport data from the response
         const airports = airportsData.results.map((result) => ({
-          lat: result.geometry.location.lat,
-          lon: result.geometry.location.lng,
+          lat: result.lat,
+          lon: result.lon,
           name: result.name,
+          address: result.address, // additional info
+          rating: result.rating, // additional info
         }));
 
         // Populate this.airportLayer with the extracted airport data
         airports.forEach((airport) => {
+          const popupContent = `
+                <strong>${airport.name}</strong><br>
+                Address: ${airport.address}<br>
+                Rating: ${airport.rating}
+            `;
+
           const marker = L.marker([airport.lat, airport.lon], {
             icon: airportIcon,
-          }).bindPopup(airport.name);
+          }).bindPopup(popupContent);
+
           this.airportLayer.addLayer(marker);
         });
       } else {
         console.error("No airport data found.");
-        console.log(`Fetching airports for country code: ${countryCode}`);
       }
     } else {
       // Remove existing airport markers from the layer
@@ -431,57 +446,52 @@ class MapHandler extends APIHandler {
   // New method to toggle the TrainStations layer on or off
   async toggleTrainStationsLayer(show) {
     if (show) {
-      // Fetch the current country based on central coordinates
       const center = this.map.getCenter();
       const lat = center.lat.toFixed(6);
       const lon = center.lng.toFixed(6);
-
-      // Fetch country data using fetchCountryDataForCentralLocation (if needed)
-      const countryData = await this.fetchCountryDataForCentralLocation(
-        lat,
-        lon
-      );
-
-      // Specify the desired maximum number of rows
-      const maxRows = 50;
 
       // Fetch train stations data based on the language, latitude, longitude, and maximum rows
       const trainStationsData = await this.fetchTrainStations(
         "en",
         lat,
         lon,
-        maxRows
+        50
       );
 
-      // Check if trainStationsData contains valid data
       if (
         Array.isArray(trainStationsData.results) &&
         trainStationsData.results.length > 0
       ) {
-        // Extract and process train station data from the response
         const trainStations = trainStationsData.results.map((result) => ({
-          lat: result.geometry.location.lat,
-          lon: result.geometry.location.lng,
+          lat: result.lat,
+          lon: result.lon,
           name: result.name,
+          address: result.address, // additional info
+          rating: result.rating, // additional info
         }));
 
-        // Populate this.trainStationLayer with the extracted train station data
         trainStations.forEach((station) => {
+          const popupContent = `
+          <strong>${station.name}</strong><br>
+          Address: ${station.address}<br>
+          Rating: ${station.rating}
+        `;
+
           const marker = L.marker([station.lat, station.lon], {
             icon: trainStationIcon,
-          }).bindPopup(station.name);
+          }).bindPopup(popupContent);
+
           this.trainStationLayer.addLayer(marker);
         });
       } else {
         console.error("No train station data found.");
       }
     } else {
-      // Remove existing train station markers from the layer
       this.trainStationLayer.clearLayers();
     }
   }
 
-  // Modify fetchTrainStations to accept maxRows as a parameter
+  // Fetch Train Stations
   fetchTrainStations(lang, lat, lon, maxRows) {
     const params = { lang, lat, lon, maxRows };
     return this.makeParameterizedAjaxCall("./php/fetch_trains.php", params);
@@ -710,20 +720,30 @@ let currentCountryInfo = {};
             type: "GET",
             dataType: "json",
           });
+          // console.log(countryResult);
 
           if (countryResult && countryResult[0]) {
             const countryInfo = countryResult[0];
             const name = countryInfo.name.common || "Unknown";
             const population = countryInfo.population || "Unknown";
             const flag =
-              countryInfo.flags.svg || "path/to/default/flag/image.png"; // Make sure to adjust this based on the actual API response
+              countryInfo.flags.svg || "path/to/default/flag/image.png";
+            const capital = countryInfo.capital || "Unknown"; // New field
+            const currencyInfo = countryInfo.currencies || {};
+            const mainCurrencyCode = Object.keys(currencyInfo)[0] || "Unknown"; // Assuming the first key is the main currency
+            const currencyName = currencyInfo[mainCurrencyCode]
+              ? currencyInfo[mainCurrencyCode].name
+              : "Unknown";
 
-            $("#countryInfoModalLabel").text(name);
+            // Existing code to populate the modal
             $("#country-title").html(`<h3>${name}</h3>`);
             $("#country-population").html(`<p>Population: ${population}</p>`);
             $("#country-flag").html(
               `<img src="${flag}" alt="Flag of ${name}" width="100">`
             );
+
+            $("#country-capital").html(`<p>Capital: ${capital}</p>`);
+            $("#country-currency").html(`<p>Currency: ${currencyName}</p>`);
 
             $("#country-info-modal").modal("show");
           } else {
@@ -758,8 +778,6 @@ let currentCountryInfo = {};
     });
 
     infoButton.addTo(mapHandler.map);
-
-    ////////////////////////////////////
 
     ///////////////////////////////////
 
@@ -851,7 +869,7 @@ let currentCountryInfo = {};
 
       const { countryCode, countryName } = geoResult;
 
-      console.log(`Fetched country code: ${countryCode}`);
+      // console.log(`Fetched country code: ${countryCode}`);
 
       if (countryCode) {
         // Check if the fetched countryCode exists in the dropdown options
