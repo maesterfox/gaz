@@ -16,26 +16,46 @@ const OPEN_STREET_MAP_URL =
 const GOOGLE_SATELLITE_URL =
   "http://www.google.cn/maps/vt?lyrs=s@189&gl=cn&x={x}&y={y}&z={z}";
 
-// Class to centralize AJAX operations
+/**
+ * APIHandler Class
+ *
+ * This class centralizes all AJAX operations for the application.
+ * It provides methods to execute generic AJAX requests, handle responses,
+ * and manage errors. Designed to be a reusable component for various parts of the application.
+ */
 class APIHandler {
   // Method to execute a generic AJAX call and return a promise
   makeAjaxCall(url, type, dataType, data) {
     return new Promise((resolve, reject) => {
-      // Execute the AJAX request
       $.ajax({
         url: url,
         type: type,
         dataType: dataType,
         data: data,
-        // Fulfill the promise upon a successful AJAX call
         success: resolve,
-        // Reject the promise upon an error
-        error: reject,
+        error: function (jqXHR, textStatus, errorThrown) {
+          reject(
+            new Error(
+              `Failed with status: ${textStatus}, error message: ${errorThrown}`
+            )
+            /* added the error callback that takes three parameters: jqXHR, textStatus, and errorThrown. These parameters provide details about the failed request. */
+          );
+        },
       });
     });
   }
 
-  // Method to execute an AJAX call with URL parameters and return a promise
+  /**
+   * makeParameterizedAjaxCall Method
+   *
+   * Executes an AJAX request with query parameters.
+   *
+   * @param {String} url - The base URL for the AJAX request.
+   * @param {Object} params - An object containing the query parameters as key-value pairs.
+   *
+   * @returns {Promise} - A Promise that resolves with the AJAX response data if successful,
+   *                      or rejects with an error message if the AJAX call fails.
+   */
   makeParameterizedAjaxCall(url, params) {
     return new Promise((resolve, reject) => {
       // Construct the full URL with parameters
@@ -72,8 +92,16 @@ class APIHandler {
 class WeatherAPI extends APIHandler {
   constructor() {
     super();
-    // to improve the performance of your application by minimizing redundant API calls
-    this.dataCache = {}; // Initialize empty cache
+    /**
+     * Data Cache Object
+     *
+     * This object is used to cache weather data for specific geographical coordinates.
+     * Store the fetched data in a cache object. When a request is made for
+     * coordinates that we've already fetched, the cached data is returned instead of making a
+     * new API call.
+     *
+     */
+    this.dataCache = {};
   }
 
   async fetchWeatherForCentralLocation(map) {
@@ -98,7 +126,7 @@ class WeatherAPI extends APIHandler {
     this.dataCache[cacheKey] = data; // Store data in cache
 
     // Log the weather data received from the AJAX call
-    console.log("Weather data:", data.weatherData);
+    // console.log("Weather data:", data.weatherData);
 
     if (data.weatherData) {
       const weatherInfo = data.weatherData;
@@ -145,15 +173,16 @@ class WikipediaAPI extends APIHandler {
 
   async fetchWikipediaForCentralLocation(map, lat = null, lon = null) {
     try {
-      console.log("fetchWikipediaForCentralLocation called");
+      // console.log("fetchWikipediaForCentralLocation called");
 
+      // If latitude and longitude are not provided, default to the coordinates of the map's center
       if (!lat || !lon) {
         const center = map.getCenter();
         lat = center.lat.toFixed(6);
         lon = center.lng.toFixed(6);
       }
 
-      console.log("Sending lat:", lat, " lon:", lon);
+      // console.log("Sending lat:", lat, " lon:", lon);
 
       // Fetch basic Geonames information
       const result = await this.makeAjaxCall(
@@ -162,7 +191,7 @@ class WikipediaAPI extends APIHandler {
         "json",
         { lat: lat, lon: lon }
       );
-
+      // Check if 'result.placeInfo.geonames' exists and is not empty
       if (
         result.placeInfo &&
         result.placeInfo.geonames &&
