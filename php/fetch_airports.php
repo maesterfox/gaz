@@ -1,42 +1,39 @@
 <?php
+// error reporting (uncomment these two lines during development)
+// ini_set('display_errors', 'On');
+// error_reporting(E_ALL);
 
-$api_key = 'AIzaSyAgogJFxyczBYpDf5qonOl_AwatS4TYY2Q';
+// gets current time
+$executionStartTime = microtime(true);
 
-$lat = $_GET['lat'];
-$lon = $_GET['lon'];
-$radius = 50000;  // in meters
+// your Geonames username
+$username = "mrfox815";
 
-$url = "https://maps.googleapis.com/maps/api/place/textsearch/json?"
-	. "query=airports"
-	. "&location=$lat,$lon"
-	. "&radius=$radius"
-	. "&key=$api_key";
+// gets countryCode from request variable
+$countryCode = $_REQUEST['iso'];
 
-$response = file_get_contents($url);
+// Update the URL to fetch airports by country code
+$url = "http://api.geonames.org/searchJSON?country={$countryCode}&fcode=AIRP&maxRows=100&username={$username}";
 
-if ($response === FALSE) {
-	header('Content-Type: application/json');
-	echo json_encode(['error' => 'Failed to fetch airport data']);
-	exit;
-}
+// creating curl handle
+$ch = curl_init();
+curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_URL, $url);
 
-$response_data = json_decode($response, true);
-if (isset($response_data['results'])) {
-	$airports = array();
-	foreach ($response_data['results'] as $result) {
-		$airport = array(
-			'name' => $result['name'],
-			'lat' => $result['geometry']['location']['lat'],
-			'lon' => $result['geometry']['location']['lng'],
-			// Capture additional info here, if available
-			'address' => isset($result['formatted_address']) ? $result['formatted_address'] : '',
-			'rating' => isset($result['rating']) ? $result['rating'] : ''
-		);
-		$airports[] = $airport;
-	}
-	header('Content-Type: application/json');
-	echo json_encode(['results' => $airports]);
-} else {
-	header('Content-Type: application/json');
-	echo json_encode(['error' => 'No results found']);
-}
+// makes the request to the API
+$result = curl_exec($ch);
+
+curl_close($ch);
+
+$decode = json_decode($result, true);
+
+$output['status']['code'] = "200";
+$output['status']['name'] = "ok";
+$output['status']['description'] = "success";
+$output['status']['returnedIn'] = intval((microtime(true) - $executionStartTime) * 1000) . " ms";
+$output['data'] = $decode['geonames'];
+
+header('Content-Type: application/json; charset=UTF-8');
+
+echo json_encode($output);

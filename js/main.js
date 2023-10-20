@@ -94,12 +94,7 @@ class WeatherAPI extends APIHandler {
     super();
     /**
      * Data Cache Object
-     *
      * This object is used to cache weather data for specific geographical coordinates.
-     * Store the fetched data in a cache object. When a request is made for
-     * coordinates that we've already fetched, the cached data is returned instead of making a
-     * new API call.
-     *
      */
     this.dataCache = {};
   }
@@ -244,18 +239,6 @@ class GeoNamesAPI extends APIHandler {
   }
 }
 
-let userLocationMarker = null;
-
-const airportIcon = L.icon({
-  iconUrl: "./plane.gif",
-  iconSize: [32, 32], // size of the icon
-});
-
-const trainStationIcon = L.icon({
-  iconUrl: "./train.gif",
-  iconSize: [32, 32], // size of the icon
-});
-
 // MapHandler Class
 class MapHandler extends APIHandler {
   constructor(mapId) {
@@ -263,58 +246,225 @@ class MapHandler extends APIHandler {
     this.map = L.map(mapId); // Now it's okay to use 'this'
     this.dataCache = {};
     this.currentCountryName = null;
+    this.countryCode = null; // Define countryCode as a class property
+    this.border = null; // Initialize to null
     this.singleMarker = null; // Initialize to null
-    this.airportLayer = L.layerGroup(); // Initialize airport layer
-    this.trainStationLayer = L.layerGroup(); // Initialize train station layer
     this.standardLayer = L.tileLayer(OPEN_STREET_MAP_URL, {
       maxZoom: 19,
     }).addTo(this.map);
     this.satelliteLayer = L.tileLayer(GOOGLE_SATELLITE_URL, { maxZoom: 19 });
+    this.layerGroups = {
+      Standard: this.standardLayer,
+      Satellite: this.satelliteLayer,
+    };
+    this.airports = L.markerClusterGroup({
+      polygonOptions: {
+        fillColor: "#fff",
+        color: "#000",
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 0.5,
+      },
+    }).addTo(this.map);
+
+    this.trains = L.markerClusterGroup({
+      polygonOptions: {
+        fillColor: "#fff",
+        color: "#000",
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 0.5,
+      },
+    }).addTo(this.map);
+
+    this.universities = L.markerClusterGroup({
+      polygonOptions: {
+        fillColor: "#fff",
+        color: "#000",
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 0.5,
+      },
+    }).addTo(this.map);
+
+    this.castles = L.markerClusterGroup({
+      polygonOptions: {
+        fillColor: "#fff",
+        color: "#000",
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 0.5,
+      },
+    }).addTo(this.map);
+
     this.weatherAPI = new WeatherAPI();
     this.locationCache = {};
     this.geoJsonLayer = null; // Add this line to store the GeoJSON layer
     this.init();
   }
 
-  init() {
-    console.log("Init function called");
+  async init() {
     this.initializeMap();
     this.initializeButtons();
     this.fetchAndSetUserLocation();
-    console.log("fetchAndSetUserLocation is called");
-
     this.initializeLayerControl();
+    this.initMarkerIcons(); // Add this line
+    this.fetchAirports(); // Add this line
+    this.fetchTrains(); // Add this line
+    this.fetchUniversities(); // Fetch for GB initially
+    this.fetchCastles(); // Fetch for GB initially
   }
 
   initializeLayerControl() {
-    console.log("Initializing layer control"); // Debugging log
-
+    // Define a base map (if needed)
     const baseMaps = {
       Standard: this.standardLayer,
       Satellite: this.satelliteLayer,
     };
 
-    const overlayMaps = {
-      Airports: this.airportLayer,
-      TrainStations: this.trainStationLayer, // Add this line
+    // Create a feature group for airports and trains
+    const airportFeatureGroup = L.featureGroup([this.airports]);
+    const trainFeatureGroup = L.featureGroup([this.trains]);
+    const universityGroup = L.featureGroup([this.universities]);
+    const castleGroup = L.featureGroup([this.castles]);
+
+    // Add the feature groups to the map, which checks the corresponding checkboxes
+    airportFeatureGroup.addTo(this.map);
+    trainFeatureGroup.addTo(this.map);
+    universityGroup.addTo(this.map);
+    castleGroup.addTo(this.map);
+
+    // Define overlays including airports and trains with checkboxes
+    const overlays = {
+      Airports: airportFeatureGroup,
+      "Train Stations": trainFeatureGroup,
+      Universities: universityGroup,
+      Castles: castleGroup,
     };
 
+    // Add the Layer Control with checkboxes
     L.control
-      .layers(baseMaps, overlayMaps, { position: "topright" })
-      .addTo(this.map);
+      .layers(baseMaps, overlays)
+      .addTo(this.map)
+      .setPosition("topright");
+  }
 
-    this.map.on("overlayadd overlayremove", async (event) => {
-      if (event.name === "Airports") {
-        await this.toggleAirportsLayer(event.type === "overlayadd");
-      } else if (event.name === "TrainStations") {
-        // Add this block
-        await this.toggleTrainStationsLayer(event.type === "overlayadd");
-      }
+  initMarkerIcons() {
+    this.airportIcon = L.divIcon({
+      className: "custom-marker-icon", // Define a custom CSS class for styling
+      html: '<i class="fa fa-plane" style="color: blue;"></i>', // Font Awesome plane icon
+      iconSize: [48, 48], // Adjust the size as needed
+    });
+
+    this.trainIcon = L.divIcon({
+      className: "custom-marker-icon", // Define a custom CSS class for styling
+      html: '<i class="fa fa-train" style="color: red;"></i>', // Font Awesome city icon
+      iconSize: [48, 48], // Adjust the size as needed
+    });
+
+    this.universityIcon = L.divIcon({
+      className: "custom-marker-icon",
+      html: '<i class="fa fa-graduation-cap" style="color: green;"></i>',
+      iconSize: [48, 48],
+    });
+
+    this.castleIcon = L.divIcon({
+      className: "custom-marker-icon",
+      html: '<i class="fa fa-chess-rook" style="color: purple;"></i>',
+      iconSize: [48, 48],
     });
   }
 
   initializeMap() {
     this.map.invalidateSize();
+  }
+
+  async fetchAirports(isoCode) {
+    $.ajax({
+      url: "./php/fetch_airports.php",
+      type: "POST",
+      dataType: "json",
+      data: {
+        iso: isoCode,
+      },
+      success: (result) => {
+        this.airports.clearLayers(); // Clear existing markers
+        if (result.status.code == 200) {
+          result.data.forEach((item) => {
+            L.marker([item.lat, item.lng], { icon: this.airportIcon })
+              .bindTooltip(item.name, { direction: "top", sticky: true })
+              .addTo(this.airports);
+          });
+        }
+      },
+      error: (jqXHR, textStatus, errorThrown) => {},
+    });
+  }
+
+  async fetchTrains(isoCode) {
+    $.ajax({
+      url: "./php/fetch_trains.php",
+      type: "POST",
+      dataType: "json",
+      data: {
+        iso: isoCode,
+      },
+      success: (result) => {
+        this.trains.clearLayers(); // Clear existing markers
+        if (result.status.code == 200) {
+          result.data.forEach((item) => {
+            L.marker([item.lat, item.lng], { icon: this.trainIcon })
+              .bindTooltip(item.name, { direction: "top", sticky: true })
+              .addTo(this.trains);
+          });
+        }
+      },
+      error: (jqXHR, textStatus, errorThrown) => {},
+    });
+  }
+
+  async fetchUniversities(isoCode) {
+    $.ajax({
+      url: "./php/fetch_universities.php",
+      type: "POST",
+      dataType: "json",
+      data: {
+        iso: isoCode,
+      },
+      success: (result) => {
+        console.log("Success result:", result);
+        this.universities.clearLayers(); // Clear existing markers
+        if (result.status.code == 200) {
+          result.data.forEach((item) => {
+            L.marker([item.lat, item.lng], { icon: this.universityIcon })
+              .bindTooltip(item.name, { direction: "top", sticky: true })
+              .addTo(this.universities);
+          });
+        }
+      },
+    });
+  }
+
+  async fetchCastles(isoCode) {
+    $.ajax({
+      url: "./php/fetch_castles.php",
+      type: "POST",
+      dataType: "json",
+      data: {
+        iso: isoCode,
+      },
+      success: (result) => {
+        this.castles.clearLayers(); // Clear existing markers
+        if (result.status.code == 200) {
+          result.data.forEach((item) => {
+            L.marker([item.lat, item.lng]) // You can add icon here
+              .bindTooltip(item.name, { direction: "top", sticky: true })
+              .addTo(this.castles);
+          });
+        }
+      },
+      error: (jqXHR, textStatus, errorThrown) => {},
+    });
   }
 
   initializeButtons() {
@@ -353,11 +503,11 @@ class MapHandler extends APIHandler {
       }
     );
 
-    // Wikipedia Button
+    // Wikipedia Button with Font Awesome icon
     this.addButton(
       this.map,
-      "fetch-wikipedia",
-      '<img src="wiki.gif" width="20" height="20">',
+      "fetch-wikipedia", // You missed this argument in your example
+      "fa-wikipedia-w", // No HTML tags, just the class name
       "Fetch Wikipedia Info",
       (btn, map) => {
         const wikipediaAPI = new WikipediaAPI();
@@ -367,11 +517,11 @@ class MapHandler extends APIHandler {
 
     this.addNewsButton(); // Initialize the news button
 
-    // Weather Button
+    // Weather Button with Font Awesome icon
     this.addButton(
       this.map,
       "show-weather",
-      '<img src="weather.gif" width="20" height="20">',
+      '<i class="fas fa-cloud-sun"></i>', // HTML i element with Font Awesome class
       "Toggle Weather",
       (btn, map) => {
         this.weatherAPI.fetchWeatherForCentralLocation(
@@ -399,148 +549,48 @@ class MapHandler extends APIHandler {
         dataType: "json",
       });
 
+      console.log("Received geoResult:", geoResult);
+
+      if (!geoResult || !geoResult.countryCode) {
+        throw new Error("Invalid geoResult");
+      }
+
+      this.countryCode = geoResult.countryCode;
+
       // Store the result in cache
       this.dataCache[cacheKey] = geoResult;
 
       return geoResult;
     } catch (error) {
       console.error("Error fetching country data:", error);
-      return {};
+      throw error;
     }
-  }
-
-  // Method to toggle the Airports layer on or off
-  async toggleAirportsLayer(show) {
-    if (show) {
-      // Fetch the current country based on central coordinates
-      const center = this.map.getCenter();
-      const lat = center.lat.toFixed(6);
-      const lon = center.lng.toFixed(6);
-
-      // Fetch country data using fetchCountryDataForCentralLocation
-      const countryData = await this.fetchCountryDataForCentralLocation(
-        lat,
-        lon
-      );
-
-      // Specify the desired maximum number of rows
-      const maxRows = 50;
-
-      // Fetch airports data based on the country code, language, and maximum rows
-      const airportsData = await this.fetchAirports("en", lat, lon, maxRows);
-
-      // Check if airportsData contains valid data
-      if (
-        Array.isArray(airportsData.results) &&
-        airportsData.results.length > 0
-      ) {
-        // Extract and process airport data from the response
-        const airports = airportsData.results.map((result) => ({
-          lat: result.lat,
-          lon: result.lon,
-          name: result.name,
-          address: result.address, // additional info
-          rating: result.rating, // additional info
-        }));
-
-        // Populate this.airportLayer with the extracted airport data
-        airports.forEach((airport) => {
-          const popupContent = `
-                <strong>${airport.name}</strong><br>
-                Address: ${airport.address}<br>
-                Rating: ${airport.rating}
-            `;
-
-          const marker = L.marker([airport.lat, airport.lon], {
-            icon: airportIcon,
-          }).bindPopup(popupContent);
-
-          this.airportLayer.addLayer(marker);
-        });
-      } else {
-        console.error("No airport data found.");
-      }
-    } else {
-      // Remove existing airport markers from the layer
-      this.airportLayer.clearLayers();
-    }
-  }
-
-  // Fetch Airports
-  fetchAirports(lang, lat, lon, maxRows) {
-    const params = { lang, lat, lon, maxRows };
-    return this.makeParameterizedAjaxCall("./php/fetch_airports.php", params);
-  }
-
-  // New method to toggle the TrainStations layer on or off
-  async toggleTrainStationsLayer(show) {
-    if (show) {
-      const center = this.map.getCenter();
-      const lat = center.lat.toFixed(6);
-      const lon = center.lng.toFixed(6);
-
-      // Fetch train stations data based on the language, latitude, longitude, and maximum rows
-      const trainStationsData = await this.fetchTrainStations(
-        "en",
-        lat,
-        lon,
-        50
-      );
-
-      if (
-        Array.isArray(trainStationsData.results) &&
-        trainStationsData.results.length > 0
-      ) {
-        const trainStations = trainStationsData.results.map((result) => ({
-          lat: result.lat,
-          lon: result.lon,
-          name: result.name,
-          address: result.address, // additional info
-          rating: result.rating, // additional info
-        }));
-
-        trainStations.forEach((station) => {
-          const popupContent = `
-          <strong>${station.name}</strong><br>
-          Address: ${station.address}<br>
-          Rating: ${station.rating}
-        `;
-
-          const marker = L.marker([station.lat, station.lon], {
-            icon: trainStationIcon,
-          }).bindPopup(popupContent);
-
-          this.trainStationLayer.addLayer(marker);
-        });
-      } else {
-        console.error("No train station data found.");
-      }
-    } else {
-      this.trainStationLayer.clearLayers();
-    }
-  }
-
-  // Fetch Train Stations
-  fetchTrainStations(lang, lat, lon, maxRows) {
-    const params = { lang, lat, lon, maxRows };
-    return this.makeParameterizedAjaxCall("./php/fetch_trains.php", params);
   }
 
   fetchAndSetUserLocation() {
+    const self = this;
     navigator.geolocation.getCurrentPosition(
-      (position) => {
+      async (position) => {
         const { latitude, longitude } = position.coords;
-        this.map.setView([latitude, longitude], 5);
+        self.map.setView([latitude, longitude], 5);
 
-        // Create and set the singleMarker
-        this.singleMarker = L.marker([latitude, longitude]).addTo(this.map);
-        this.singleMarker.bindPopup("You are here").openPopup();
-
-        // Use "GBR" as the country code for the United Kingdom
-        const countryCode = "GBR";
+        // Fetch the country data based on latitude and longitude
+        const geoResult = await this.fetchCountryDataForCentralLocation(
+          latitude,
+          longitude
+        );
+        const countryCode = geoResult.countryCode;
 
         // Fetch and display the border
-        this.fetchAndDisplayCountryBorder(countryCode);
+        if (countryCode) {
+          this.fetchAndDisplayCountryBorder(countryCode);
+
+          // Populate airports and train stations based on the country code
+          this.fetchAirports(countryCode);
+          this.fetchTrains(countryCode);
+          this.fetchCastles(countryCode);
+          this.fetchUniversities(countryCode);
+        }
       },
       (error) => {
         console.error("Could not fetch user location:", error);
@@ -550,54 +600,59 @@ class MapHandler extends APIHandler {
 
   // Function to fetch and display country border
   fetchAndDisplayCountryBorder(countryCode) {
-    console.log(countryCode);
+    // console.log("Country Code:", countryCode);
 
     if (!countryCode) {
       console.error("Invalid country code");
       return;
     }
 
-    // Load the GeoJSON file
+    const self = this; // Save context
+
     $.ajax({
-      url: `./php/fetch_country_border.php?countryCode=${countryCode}`, // Adjust the URL as needed
-      type: "GET",
+      url: "./php/fetch_country_border.php",
+      type: "POST",
       dataType: "json",
-      success: (result) => {
-        console.log("Server response:", result);
+      success: function (result) {
+        // console.log("Received data:", result);
 
-        // Check if the result has the expected structure
-        if (result && result.properties && result.geometry) {
-          // Remove existing border if any
-          if (this.geoJsonLayer) {
-            this.map.removeLayer(this.geoJsonLayer);
-          }
-
-          // Define the style for the border
-          const borderStyle = {
-            color: "#f43ff4",
-            weight: 2,
-            opacity: 0.3,
-          };
-
-          // Create a GeoJSON feature from the result
-          const geoJsonFeature = {
-            type: "Feature",
-            properties: result.properties,
-            geometry: result.geometry,
-          };
-
-          // Add the GeoJSON layer to the map
-          this.geoJsonLayer = L.geoJSON(geoJsonFeature, {
-            style: borderStyle,
-          }).addTo(this.map);
-        } else {
-          console.error("Invalid GeoJSON data format");
+        if (self.border && self.map.hasLayer(self.border)) {
+          self.map.removeLayer(self.border);
         }
+
+        const features = result.data.border.features;
+        const filteredFeatures = features.filter(
+          (feature) => feature.properties.iso_a2 === countryCode
+        );
+
+        if (filteredFeatures.length === 0) {
+          console.error("No features found for the given country code");
+          return;
+        }
+
+        self.border = L.geoJSON(filteredFeatures, {
+          style: { color: "lime", weight: 3, opacity: 0.75 },
+        }).addTo(self.map);
+
+        if (!self.border) {
+          console.error("Failed to create border layer");
+          return;
+        }
+
+        const bounds = self.border.getBounds();
+
+        if (!bounds.isValid()) {
+          console.error("Invalid bounds");
+          return;
+        }
+
+        self.map.flyToBounds(bounds, {
+          padding: [35, 35],
+          duration: 2,
+        });
       },
-      error: (jqXHR, textStatus, errorThrown) => {
-        console.error(`Fetch error: ${textStatus}`);
-        console.error("Error details:", errorThrown);
-        console.error("Full response object:", jqXHR);
+      error: function (jqXHR, textStatus, errorThrown) {
+        console.log("Error:", textStatus, errorThrown);
       },
     });
   }
@@ -665,7 +720,7 @@ let currentCountryInfo = {};
   document.addEventListener("DOMContentLoaded", function () {
     const mapHandler = new MapHandler("mapid");
 
-    // Step 2: On page load, fetch countries and populate the dropdown
+    // On page load, fetch countries and populate the dropdown
     $(document).ready(function () {
       $.ajax({
         url: "./php/fetch_countries.php",
@@ -676,12 +731,11 @@ let currentCountryInfo = {};
           let options =
             '<option value="" disabled selected>Select Country</option>';
           data.forEach(function (country) {
-            options += `<option value="${country.cca3}">${country.name.common}</option>`;
+            options += `<option value="${country.cca2}">${country.name.common}</option>`;
           });
           $("#country-select").html(options);
           $("#country-select").prop("disabled", false);
         },
-
         error: function (error) {
           console.error("Error fetching country data: ", error);
         },
@@ -689,17 +743,21 @@ let currentCountryInfo = {};
     });
 
     // Add event listener to "Search" button
-    $("#search-button").click(function () {
-      const selectedCountryAlpha3Code = $("#country-select").val();
-      const selectedCountryName = $("#country-select")
-        .find("option:selected")
-        .text();
+    $("#country-select").change(function () {
+      const selectedCountryAlpha3Code = $(this).val();
+      const selectedCountryName = $(this).find("option:selected").text();
 
       // Update the current country name in mapHandler
       mapHandler.currentCountryName = selectedCountryName;
 
       if (selectedCountryAlpha3Code) {
-        mapHandler.fetchAndDisplayCountryBorder(selectedCountryAlpha3Code);
+        mapHandler.fetchAndDisplayCountryBorder(selectedCountryAlpha3Code); // Fetch and display border
+
+        // Fetch airports and train stations based on the selected country
+        mapHandler.fetchAirports(selectedCountryAlpha3Code);
+        mapHandler.fetchTrains(selectedCountryAlpha3Code);
+        mapHandler.fetchUniversities(selectedCountryAlpha3Code);
+        mapHandler.fetchCastles(selectedCountryAlpha3Code);
       } else {
         console.log("No country selected");
       }
@@ -823,7 +881,7 @@ let currentCountryInfo = {};
             fetchAndDisplayCurrencyConversion();
           },
           title: "Show currency conversion",
-          icon: "fa-exchange-alt",
+          icon: "fa-exchange-alt", // No HTML tags, just the class name
         },
       ],
     });
@@ -943,9 +1001,9 @@ let currentCountryInfo = {};
     //////////////////////////////////
 
     // current zoom
-    mapHandler.map.on("zoomend", function () {
-      const zoomLevel = mapHandler.map.getZoom();
-      document.getElementById("zoom-display").innerHTML = `Zoom: ${zoomLevel}`;
-    });
+    // mapHandler.map.on("zoomend", function () {
+    //   const zoomLevel = mapHandler.map.getZoom();
+    //   document.getElementById("zoom-display").innerHTML = `Zoom: ${zoomLevel}`;
+    // });
   });
 })();

@@ -1,29 +1,23 @@
 <?php
-header('Content-Type: application/json');
 
-// Get the country code or name from the GET request
-$countryCode = $_GET['countryCode'] ?? null;
-$countryName = $_GET['countryName'] ?? null;
+	$executionStartTime = microtime(true) / 1000;
+	
+	$result = file_get_contents('./countryBorders.geo.json');
+    
 
-// Read the GeoJSON file
-$geojson = file_get_contents('./countries.geo.json');
-$data = json_decode($geojson, true);
+    $border = json_decode($result,true);
+    $countryInfo = json_decode($result,true);
+    
+	$output['status']['code'] = "200";
+    $output['status']['name'] = "ok";
+    $output['status']['description'] = "success";
+    $output['status']['executedIn'] = intval((microtime(true) - $executionStartTime) * 1000) . " ms";
 
-// Initialize an empty array to hold the border data for the selected country
-$selectedCountryData = [];
+    $output['data']['border'] = $border;
+    $output['data']['countryInfo'] = $countryInfo;
+    
+    //repeat above line for each API result
 
-// Loop through each feature to find the one that matches
-foreach ($data['features'] as $feature) {
-    if (($countryCode && $feature['properties']['ISO_A3'] === $countryCode) ||
-        ($countryName && $feature['properties']['ADMIN'] === $countryName)) {
-        $selectedCountryData = $feature;
-        break;
-    }
-}
+    header('Content-Type: application/json; charset=UTF-8');
 
-// Check if data was found
-if (empty($selectedCountryData)) {
-    echo json_encode(['status' => ['code' => 404, 'message' => 'Country not found']]);
-} else {
-    echo json_encode(['status' => ['code' => 200, 'message' => 'Success'], 'properties' => $selectedCountryData['properties'], 'geometry' => $selectedCountryData['geometry']]);
-}
+    echo json_encode($output);

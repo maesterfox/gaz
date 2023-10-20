@@ -48,7 +48,7 @@
 /* Set parent element of the map div to the full height of the viewport so the map in the div can be fullscreen (100% of the screen)*/
 html, body {
   margin: 0;
-  height: calc(100% - 35px);
+  height: 100%;
 }
 
 /* Set the height to 100% of device */
@@ -56,12 +56,28 @@ html, body {
   height: 100%; 
 }
 
+
 /* Set custom font for app name */
 #gaz {
 font-family: 'Poppins', cursive, sans-serif;
 font-size: 28px;
 color: rgb(255, 255, 255);
 }
+
+#selectContainer {
+  position: fixed;
+  top: 0px;
+  z-index: 1000;
+  width: 100%;
+  padding: 31px 0;
+  text-align: center; /* Center align the container */
+}
+
+#country-select {
+  width: 200px !important; /* Set the width */
+  margin: 0 auto; /* Auto margins for horizontal centering */
+}
+
 
 /* Custom width for select element */
 #colsel {
@@ -120,19 +136,12 @@ align-items: center;
 text-align: center;
 }
 
-.navbar-logo {
-  max-height: 60px; /* Adjust the height as needed */
-  padding: 0;
-}
 
-.navbar {
-  color: white;
-  background-image: radial-gradient( circle farthest-corner at 85.4% 50.8%,  rgb(22, 33, 61) 0%, rgba(3,22,65,1) 74.2% );
-}
 
-#zoom-display {
+
+
+/* #zoom-display {
   margin-top: 0;
-  /* z-index: 10000; */
   padding: 5px;
   border: 1px solid #000000;
   border-radius: 4px;
@@ -142,35 +151,13 @@ text-align: center;
   background-color: white;
   color: rgb(11, 11, 46);
   box-shadow: 0px 0px 10px rgba(100, 217, 233, 0.5);
-}
+} */
 
 
-#search-button {
-  background-color: transparent;
-  border: 2px solid #007bff; /* Adjust border properties as needed */
-  color: #c4e0ff; /* Text color */
-  box-shadow: 0px 0px 10px rgba(15, 81, 151, 0.5); /* Box shadow */
-  text-shadow: 1px 1px 2px rgba(175, 214, 255, 0.5); /* Text shadow */
-  transition: all 0.3s ease; /* Smooth transition effect */
-}
 
-/* Hover effect for the search button */
-#search-button:hover {
-   
-  color: #fff; 
-  box-shadow: 0px 0px 15px rgb(0, 0, 0); 
-  text-shadow: 0px 0px 2px whitesmoke; 
-}
 
-/* Custom class for navy blue background */
-.custom-navy-bg {
-  box-shadow: 0px 0px 15px white;
-  text-shadow: 0px 0px 2px white;
-  background-color: #001f3f; 
-  color: rgb(255, 255, 255); 
-  padding: 10px; 
-  border-radius: 8px;
-}
+
+
 
 .landmark-label {
   font-size: 28px; /* Adjust the font size to your preference */
@@ -183,19 +170,3 @@ text-align: center;
   color: aqua;
 }
 
-/* Add similar styles for other elements as needed */
-
-@media (max-width: 768px) {
-  /* Adjust the max-width and height as needed for your design */
-  .navbar-logo {
-    max-width: 80px; /* Set the maximum width for the logo */
-    height: auto; /* Allow the height to adjust proportionally */
-  }
-}
-
-@media (max-width: 576px) {
-  /* Further adjustments for smaller screens */
-  .navbar-logo {
-    max-width: 60px; /* Adjust the maximum width for smaller screens */
-  }
-}
