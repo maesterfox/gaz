@@ -45,159 +45,215 @@
     <!-- Country options will be populated here -->
   </select>
 </span>
-  <!-- News Information Modal -->
-  <div aria-hidden="true" aria-labelledby="newsInfoModalLabel" class="modal fade" id="news-info-modal" tabindex="-1">
-   <div class="modal-dialog">
-    <div class="modal-content custom-navy-bg">
-     <div class="modal-header">
-      <h5 class="modal-title" id="newsInfoModalLabel">
-       News Information
-      </h5>
-      <button aria-label="Close" class="close" data-dismiss="modal" type="button">
-       <span aria-hidden="true">
-        ×
-       </span>
-      </button>
-     </div>
-     <div class="modal-body" id="news-data">
-      <!-- Dynamic news articles will be inserted here -->
-     </div>
+
+ <!-- News Information Modal -->
+<div aria-hidden="true" aria-labelledby="newsInfoModalLabel" class="modal fade" id="news-info-modal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-content custom-navy-bg shadow"> 
+      <div class="modal-header bg-gradient bg-primary text-white"> 
+        <h5 class="modal-title w-100 text-center" id="newsInfoModalLabel"> 
+          News Information
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="news-data">
+        <!-- Dynamic news articles will be inserted here -->
+      </div>
     </div>
-   </div>
   </div>
-  <!-- Wikipedia History Modal -->
-  <div aria-hidden="true" aria-labelledby="wikipediaHistoryModalLabel" class="modal fade" id="wikipedia-history-modal" tabindex="-1">
-   <div class="modal-dialog">
-    <div class="modal-content custom-navy-bg">
-     <div class="modal-header">
-      <h5 class="modal-title" id="wikipediaHistoryModalLabel">
-       Wikipedia History
-      </h5>
-      <button aria-label="Close" class="close" data-dismiss="modal" type="button">
-       <span aria-hidden="true">
-        ×
-       </span>
-      </button>
-     </div>
-     <div class="modal-body" id="country-history">
-      <!-- Country historical data from Wikipedia will be inserted here -->
-     </div>
+</div>
+
+
+
+<!-- Wikipedia History Modal -->
+<div class="modal fade" id="wikipedia-history-modal" tabindex="-1" aria-labelledby="wikipediaHistoryModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable"> <!-- Add modal-dialog-scrollable class here -->
+    <div class="modal-content bg-light text-dark shadow"> <!-- Add bg-light for background color and text-dark for text color -->
+      <div class="modal-header bg-gradient bg-primary text-white"> <!-- Added bg-gradient and bg-primary for background, text-white for text color -->
+        <h5 class="modal-title w-100 text-center" id="wikipediaHistoryModalLabel"> 
+          Wikipedia History
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button> <!-- Add btn-close for close icon -->
+      </div>
+      <div class="modal-body" id="country-history"> <!-- Add style for left alignment -->
+        <!-- Country historical data from Wikipedia will be inserted here -->
+      </div>
     </div>
-   </div>
   </div>
+</div>
+
   <!-- Currency Conversion Modal -->
-  <div aria-hidden="true" aria-labelledby="currencyConversionModalLabel" class="modal fade" id="currency-conversion-modal" tabindex="-1">
-   <div class="modal-dialog">
-    <div class="modal-content custom-navy-bg">
-     <div class="modal-header">
-      <h4 class="modal-title" id="currency-title">
-      </h4>
-      <button aria-label="Close" class="close" data-dismiss="modal" type="button">
-       <span aria-hidden="true">
-        ×
-       </span>
-      </button>
-     </div>
-     <div class="modal-body">
-      <form id="currency-converter-form">
-       <div class="form-group">
-        <label for="from-currency">
-         From Currency
-        </label>
-        <select class="form-control" id="from-currency">
-        </select>
-       </div>
-       <div class="form-group">
-        <label for="to-currency">
-         To Currency
-        </label>
-        <select class="form-control" id="to-currency">
-        </select>
-       </div>
-       <div class="form-group">
-        <label for="amount">
-         Sum to convert
-        </label>
-        <input class="form-control" id="amount" placeholder="Conversion" type="number"/>
-       </div>
-       <button class="btn btn-primary" type="submit">
-        Convert
-       </button>
-      </form>
-      <p id="conversion-result">
-      </p>
-     </div>
+<div class="modal fade" id="currency-conversion-modal" tabindex="-1" aria-labelledby="currencyConversionModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-sm modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content shadow">
+      <div class="modal-header bg-gradient bg-primary text-white">
+        <h5 class="modal-title w-100 text-center">Currency Converter</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      
+      <div class="modal-body">
+        <form id="currency-converter-form">
+          <div class="form-group">
+            <label for="from-currency" class="form-label">
+              From Currency
+            </label>
+            <select class="form-select" id="from-currency">
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="to-currency" class="form-label">
+              To Currency
+            </label>
+            <select class="form-select" id="to-currency">
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="amount" class="form-label">
+              Sum to convert
+            </label>
+            <input class="form-control" id="amount" placeholder="Conversion" type="number" />
+          </div>
+        </form>
+        <div class="text-center">
+          <p id="conversion-result">
+          </p>
+        </div>
+      </div>
     </div>
-   </div>
   </div>
+</div>
+
+
+
+
   <!-- Country Information Modal -->
-  <div aria-hidden="true" aria-labelledby="countryInfoModalLabel" class="modal fade" id="country-info-modal" tabindex="-1">
-   <div class="modal-dialog">
-    <!-- Added the custom-navy-bg class -->
-    <div class="modal-content custom-navy-bg">
-     <div class="modal-header">
-      <h5 class="modal-title" id="countryInfoModalLabel">
-       Country Information
-      </h5>
-      <button aria-label="Close" class="close" data-dismiss="modal" type="button">
-       <span aria-hidden="true">
-        ×
-       </span>
-      </button>
-     </div>
-     <div class="modal-body">
-      <div id="country-title">
+<div class="modal fade" id="country-info-modal" tabindex="-1" aria-labelledby="countryInfoModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable"> <!-- Added modal-dialog-scrollable for a scrollable modal -->
+    <div class="modal-content bg-light text-dark shadow"> 
+      <div class="modal-header bg-gradient bg-primary text-white"> 
+        <h5 class="modal-title w-100 text-center" id="countryInfoModalLabel"> 
+          Country Information
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button> 
       </div>
-      <div id="country-capital">
+      <div class="modal-body">
+        <div id="country-title">
+        </div>
+        <div id="country-capital">
+        </div>
+        <div id="country-currency">
+        </div>
+        <div id="country-population">
+        </div>
+        <div id="country-flag"> <!-- Increase flag size -->
+        </div>
       </div>
-      <div id="country-currency">
-      </div>
-      <div id="country-population">
-      </div>
-      <div id="country-flag">
-      </div>
-     </div>
     </div>
-   </div>
   </div>
+</div>
+
+
+
   <div class="leaflet-top leaflet-right" id="easy-button-container">
   </div>
+
   <!-- Div containing map element -->
   <div class="container-fluid h-100" id="mapid">
   </div>
-  <!-- Weather Modal -->
-  <div aria-hidden="true" aria-labelledby="weatherModalLabel" class="modal fade" id="weather-modal" tabindex="-1">
-   <div class="modal-dialog">
-    <!-- Add the custom-navy-bg class here -->
-    <div class="modal-content custom-navy-bg">
-     <div class="modal-header">
-      <h5 class="modal-title" id="weatherModalLabel">
-       Weather Information
-      </h5>
-      <button aria-label="Close" class="close" data-dismiss="modal" type="button">
-       <span aria-hidden="true">
-        ×
-       </span>
-      </button>
-     </div>
-     <div class="modal-body">
-      <!-- Insert weather data here -->
-      <p id="weather1">
-      </p>
-      <p id="weather4">
-      </p>
-      <p id="weather3">
-      </p>
-      <p id="weather2">
-      </p>
-      <p id="weather5">
-      </p>
-      <p id="weather6">
-      </p>
-     </div>
+
+
+    <!-- Weather Modal -->
+<div id="weatherModal" class="modal fade" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false" aria-labelledby="weatherModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content shadow">
+      <div class="modal-header bg-primary bg-gradient text-white">
+        <h5 class="modal-title" id="weatherModalLabel"></h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="pre-load"></div>
+        <!-- TODAY -->
+        <div class="row">
+          <div class="col border m-2">
+            <p class="fw-bold fs-5 mt-1">TODAY</p>
+            <div class="row">
+              <div class="col text-center m-3">
+                <p id="todayConditions" class="fw-bold fs-6"></p>
+              </div>
+              <div class="col text-center">
+                <img id="todayIcon" class="img-fluid mt-0" src="" alt="" title="">
+              </div>
+              <div class="col text-center">
+                <p class="fw-bold fs-4 mb-0"><span id="todayMaxTemp">3</span><sup>o</sup><span class="tempMetric">c</span></p>
+                <p class="fs-5 mt-0 text-secondary"><span id="todayMinTemp">-2</span><sup>o</sup><span class="tempMetric">c</span></p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- 3-DAY FORECAST -->
+        <div class="row">
+          <div class="col border m-2">
+            <div class="row">
+              <div class="col text-center">
+                <p id="day1Date" class="fw-bold fs-6 mt-3"></p>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col text-center">
+                <p class="fw-bold fs-4 mb-0"><span id="day1MaxTemp"></span><sup>o</sup>c</p>
+                <p class="fs-5 mt-0 text-secondary"><span id="day1MinTemp"></span><sup>o</sup>c</p>
+              </div>
+              <div class="col text-center">
+                <img id="day1Icon" src="" alt="" title="">
+              </div>
+            </div>
+          </div>
+          <div class="col border m-2">
+            <div class="row">
+              <div class="col text-center">
+                <p id="day2Date" class="fw-bold fs-6 mt-3"></p>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col text-center">
+                <p class="fw-bold fs-4 mb-0"><span id="day2MaxTemp"></span><sup>o</sup>c</p>
+                <p class="fs-5 mt-0 text-secondary"><span id="day2MinTemp"></span><sup>o</sup>c</p>
+              </div>
+              <div class="col text-center">
+                <img id="day2Icon" src="" alt="" title="">
+              </div>
+            </div>
+          </div>
+          <div class="col border m-2">
+            <div class="row">
+              <div class="col text-center">
+                <p id="day3Date" class="fw-bold fs-6 mt-3"></p>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col text-center">
+                <p class="fw-bold fs-4 mb-0"><span id="day3MaxTemp"></span><sup>o</sup>c</p>
+                <p class="fs-5 mt-0 text-secondary"><span id="day3MinTemp"></span><sup>o</sup>c</p>
+              </div>
+              <div class="col text-center">
+                <img id="day3Icon" src="" alt="" title="">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <p class="fs-6 fw-light">Last updated <span id="lastUpdated"></span>. Powered by <a href="https://www.weatherapi.com/" target="_blank" title="Free Weather API">WeatherAPI.com</a></p>
+      </div>
     </div>
-   </div>
   </div>
+</div>
+
+  
+
+
+  
+  
   <!-- JavaScript Libraries -->
 <script src="./node_modules/jquery/dist/jquery.min.js"></script>
 <script src="./node_modules/@popperjs/core/dist/umd/popper.min.js"></script>
@@ -212,6 +268,5 @@
 <!-- Custom JavaScript -->
 <script src="./js/main.js"></script>
 
-  </script>
  </body>
 </html>

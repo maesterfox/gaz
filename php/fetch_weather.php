@@ -1,37 +1,44 @@
 <?php
 // Your API Key should be kept secure
-$apiKey = "b1b39de8b0328204bf0b3e28e4d70c25";
+$apiKey = "2c7d6c408ca54ea584c114917232210";
 
 // Validate latitude and longitude
-$lat = filter_input(INPUT_GET, 'lat', FILTER_VALIDATE_FLOAT);
-$lon = filter_input(INPUT_GET, 'lon', FILTER_VALIDATE_FLOAT);
+$lat = filter_input(INPUT_POST, 'lat', FILTER_VALIDATE_FLOAT);
+$lon = filter_input(INPUT_POST, 'lon', FILTER_VALIDATE_FLOAT);
 
-if ($lat === false || $lon === false) {
+if ($lat === false || $lon === false || $lat === null || $lon === null) {
     echo json_encode(['error' => 'Invalid latitude or longitude']);
     exit;
 }
 
-$zoom = 6;
-$date = time(); // Current Unix timestamp
+// Create the query parameter for latitude and longitude
+$location = "{$lat},{$lon}";
 
-// Fetch weather data
-$weatherUrl = "http://api.openweathermap.org/data/2.5/weather?lat=$lat&lon=$lon&appid=$apiKey";
+// WeatherAPI endpoint for both current weather and forecast
+$weatherUrl = "http://api.weatherapi.com/v1/forecast.json?key={$apiKey}&q={$location}&days=5";
 
-// Error handling for file_get_contents
-$weatherData = @file_get_contents($weatherUrl);
-if ($weatherData === false) {
+// Initialize cURL session
+$curl = curl_init();
+
+// Set cURL options
+curl_setopt_array($curl, [
+    CURLOPT_URL => $weatherUrl,
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_TIMEOUT => 30,
+    CURLOPT_HTTPGET => true,
+]);
+
+// Execute cURL session and fetch the response
+$response = curl_exec($curl);
+
+// Check for cURL errors
+if (curl_errno($curl)) {
     echo json_encode(['error' => 'Failed to fetch weather data']);
     exit;
 }
 
-// Generate global precipitation map URL
-$globalPrecipitationMapUrl = "https://maps.openweathermap.org/maps/2.0/radar/$zoom/$lat/$lon?appid=$apiKey&tm=$date";
-
-// Combine both into one associative array
-$response = [
-    'weatherData' => json_decode($weatherData, true),
-    'globalPrecipitationMapUrl' => $globalPrecipitationMapUrl
-];
+// Close cURL session
+curl_close($curl);
 
 // Output the JSON response
-echo json_encode($response);
+echo $response;

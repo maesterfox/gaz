@@ -57,11 +57,13 @@ html, body {
 }
 
 
+
+
+
+
 /* Set custom font for app name */
 #gaz {
 font-family: 'Poppins', cursive, sans-serif;
-font-size: 28px;
-color: rgb(255, 255, 255);
 }
 
 #selectContainer {
@@ -76,64 +78,6 @@ color: rgb(255, 255, 255);
 #country-select {
   width: 200px !important; /* Set the width */
   margin: 0 auto; /* Auto margins for horizontal centering */
-}
-
-
-/* Custom width for select element */
-#colsel {
-width: 40%;
-}
-
-/* Flag styling */
-#flag {
-box-shadow: 2px 2px 5px;
-}
-
-/* Icon styling */
-#weathIcon, #mainWeathIcon {
-box-shadow: 2px 2px 5px white;
-}
-
-/* Table styling for modals */
-th {
-text-align: center;
-}
-
-/* Popup styling */
-.leaflet-popup-tip-container {
-display: none;
-}
-
-.leaflet-popup {
-margin: 0;
-}
-
-.nesw .leaflet-popup-tip-container {
-display: block;
-margin: auto;
-left: auto;
-}
-
-/* Forecast popup styling */
-.forecast div.leaflet-popup-content {
-align-content: left;
-width: auto;
-}
-
-.leaflet-popup-content-wrapper .leaflet-popup-content {
-text-align: center;
-width: auto;
-}
-
-/* Modal content centering */
-div.modal-dialog.modal-dialog-centered {
-justify-content: center;
-}
-
-
-div.modal-content {
-align-items: center;
-text-align: center;
 }
 
 

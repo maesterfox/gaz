@@ -88,14 +88,10 @@ class APIHandler {
   }
 }
 
-// Class to handle weather-related API calls
+// Modified WeatherAPI class
 class WeatherAPI extends APIHandler {
   constructor() {
     super();
-    /**
-     * Data Cache Object
-     * This object is used to cache weather data for specific geographical coordinates.
-     */
     this.dataCache = {};
   }
 
@@ -103,59 +99,75 @@ class WeatherAPI extends APIHandler {
     const center = map.getCenter();
     const lat = center.lat;
     const lon = center.lng;
-    const cacheKey = `${lat.toFixed(6)}:${lon.toFixed(6)}`; // Create a unique cache key
+    const cacheKey = `${lat.toFixed(6)}:${lon.toFixed(6)}`;
 
-    // Check cache
-    if (this.dataCache[cacheKey]) {
-      return this.dataCache[cacheKey]; // Return cached data if available
+    // console.log(`Fetching weather for central location`);
+    // console.log(`Generated cacheKey: ${cacheKey}`);
+
+    if (this.dataCache.hasOwnProperty(cacheKey)) {
+      this.populateWeatherModal(this.dataCache[cacheKey]);
+      $("#weatherModal").modal("show");
+      return;
     }
 
-    // Make an API call if data is not in cache
-    const data = await this.makeAjaxCall(
-      "./php/fetch_weather.php",
-      "GET",
-      "json",
-      { lat: lat, lon: lon }
-    );
-
-    this.dataCache[cacheKey] = data; // Store data in cache
-
-    // Log the weather data received from the AJAX call
-    // console.log("Weather data:", data.weatherData);
-
-    if (data.weatherData) {
-      const weatherInfo = data.weatherData;
-      const weatherModal = $("#weather-modal");
-      const kelvinTemp = weatherInfo.main.temp;
-      const celsiusTemp = (kelvinTemp - 273.15).toFixed(2);
-      // Convert temperature from Kelvin to Celsius and Fahrenheit
-      const fahrenheitTemp = ((celsiusTemp * 9) / 5 + 32).toFixed(2);
-      const iconCode = weatherInfo.weather[0].icon; // Assuming the icon code is in the first element of the 'weather' array
-      const iconUrl = `http://openweathermap.org/img/wn/${iconCode}.png`;
-
-      // Update the weather modal with weather details
-      $("#weather1").html(
-        `<img src="${iconUrl}" width="150" height="150">
-   <h3>${weatherInfo.name}, ${weatherInfo.sys.country}</h3>`
+    try {
+      const result = await this.makeAjaxCall(
+        "./php/fetch_weather.php",
+        "POST",
+        "json",
+        { lat: lat, lon: lon }
       );
-      $("#weather2").html(
-        `<p>Temperature: ${celsiusTemp}°C / ${fahrenheitTemp}°F</p>`
-      );
-      $("#weather3").html(`<p>Humidity: ${weatherInfo.main.humidity}%</p>`);
 
-      $("#weather4").html(
-        `<h4>Current Weather: ${weatherInfo.weather[0].description}</h4>`
-      );
-      $("#weather5").html(`<p>Wind: ${weatherInfo.wind.speed} mph</p>`);
-      $("#weather6").html(`<p>Clouds: ${weatherInfo.clouds.all}</p>`);
+      // console.log("AJAX call succeeded.", result);
 
-      weatherModal.modal("show");
-    } else {
-      console.log("Weather data is not available.");
+      if (result.hasOwnProperty("error")) {
+        console.log(`AJAX call failed: ${result.error}`);
+        return;
+      }
+
+      const data = result;
+      this.dataCache[cacheKey] = data;
+      this.populateWeatherModal(data);
+      $("#weatherModal").modal("show");
+    } catch (error) {
+      console.log("AJAX call failed:", error);
     }
   }
-  catch(error) {
-    console.error("Error fetching data: ", error);
+
+  populateWeatherModal(data) {
+    // Populate the modal with weather data
+
+    // Set modal title
+    $("#weatherModalLabel").html(
+      `${data.location.name}, ${data.location.country}`
+    );
+
+    // Set today's weather
+    $("#todayConditions").html(data.current.condition.text);
+    $("#todayIcon").attr("src", data.current.condition.icon);
+    $("#todayMaxTemp").html(data.current.temp_c);
+    $("#todayMinTemp").html(data.current.feelslike_c);
+
+    // Populate the 3-day forecast
+    for (let i = 0; i < 3; i++) {
+      const forecast = data.forecast.forecastday[i];
+      const dayNumber = i + 1;
+
+      // Calculate the day for each forecast
+      const date = new Date();
+      date.setDate(date.getDate() + i + 1);
+      const dayOfWeek = date.toLocaleDateString("en-US", { weekday: "long" });
+
+      $(`#day${dayNumber}Date`).text(dayOfWeek); // Display the day of the week
+      $(`#day${dayNumber}Icon`).attr("src", forecast.day.condition.icon);
+      $(`#day${dayNumber}MinTemp`).text(forecast.day.mintemp_c);
+      $(`#day${dayNumber}MaxTemp`).text(forecast.day.maxtemp_c);
+    }
+
+    // Set last updated time
+    $("#lastUpdated").text(data.current.last_updated);
+
+    // Add more code to populate other elements of the modal as needed
   }
 }
 
@@ -193,7 +205,7 @@ class WikipediaAPI extends APIHandler {
         result.placeInfo.geonames.length > 0
       ) {
         const countryName = result.placeInfo.geonames[0].countryName;
-        console.log("Country Name: ", countryName);
+        // console.log("Country Name: ", countryName);
 
         // Fetch historical data from Wikipedia via PHP
         const historyResult = await this.makeAjaxCall(
@@ -202,7 +214,7 @@ class WikipediaAPI extends APIHandler {
           "json",
           { countryName: countryName }
         );
-        console.log("History Result:", historyResult);
+        // console.log("History Result:", historyResult);
 
         // Assume the page ID is the first key in the 'pages' object
         const pageId = Object.keys(historyResult.query.pages)[0];
@@ -351,15 +363,15 @@ class MapHandler extends APIHandler {
 
   initMarkerIcons() {
     this.airportIcon = L.divIcon({
-      className: "custom-marker-icon", // Define a custom CSS class for styling
-      html: '<i class="fa fa-plane" style="color: blue;"></i>', // Font Awesome plane icon
-      iconSize: [48, 48], // Adjust the size as needed
+      className: "custom-marker-icon",
+      html: '<i class="fa fa-plane" style="color: blue;"></i>',
+      iconSize: [48, 48],
     });
 
     this.trainIcon = L.divIcon({
-      className: "custom-marker-icon", // Define a custom CSS class for styling
-      html: '<i class="fa fa-train" style="color: red;"></i>', // Font Awesome city icon
-      iconSize: [48, 48], // Adjust the size as needed
+      className: "custom-marker-icon",
+      html: '<i class="fa fa-train" style="color: red;"></i>',
+      iconSize: [48, 48],
     });
 
     this.universityIcon = L.divIcon({
@@ -370,7 +382,7 @@ class MapHandler extends APIHandler {
 
     this.castleIcon = L.divIcon({
       className: "custom-marker-icon",
-      html: '<i class="fa fa-chess-rook" style="color: purple;"></i>',
+      html: '<i class="fa fa-building" style="color: purple;"></i>',
       iconSize: [48, 48],
     });
   }
@@ -432,7 +444,7 @@ class MapHandler extends APIHandler {
         iso: isoCode,
       },
       success: (result) => {
-        console.log("Success result:", result);
+        // console.log("Success result:", result);
         this.universities.clearLayers(); // Clear existing markers
         if (result.status.code == 200) {
           result.data.forEach((item) => {
@@ -457,7 +469,7 @@ class MapHandler extends APIHandler {
         this.castles.clearLayers(); // Clear existing markers
         if (result.status.code == 200) {
           result.data.forEach((item) => {
-            L.marker([item.lat, item.lng]) // You can add icon here
+            L.marker([item.lat, item.lng], { icon: this.castleIcon }) // Updated line
               .bindTooltip(item.name, { direction: "top", sticky: true })
               .addTo(this.castles);
           });
@@ -521,9 +533,11 @@ class MapHandler extends APIHandler {
     this.addButton(
       this.map,
       "show-weather",
-      '<i class="fas fa-cloud-sun"></i>', // HTML i element with Font Awesome class
+      "fa fa-cloud", // Corrected icon class
       "Toggle Weather",
       (btn, map) => {
+        // console.log("Weather button clicked"); // Debug line
+
         this.weatherAPI.fetchWeatherForCentralLocation(
           this.map,
           this.locationCache
@@ -549,7 +563,7 @@ class MapHandler extends APIHandler {
         dataType: "json",
       });
 
-      console.log("Received geoResult:", geoResult);
+      // console.log("Received geoResult:", geoResult);
 
       if (!geoResult || !geoResult.countryCode) {
         throw new Error("Invalid geoResult");
@@ -662,47 +676,88 @@ class MapHandler extends APIHandler {
       states: [
         {
           stateName: "fetch-news",
-          icon: "fa-newspaper",
+          icon: "fa fa-newspaper-o",
           title: "Fetch Country News",
-          onClick: (btn, map) => {
-            this.currentCountryName = this.currentCountryName || "GB";
+          onClick: async (btn, map) => {
+            // Make this an async function
 
-            $.ajax({
-              url: "php/fetch_news.php?newsCountry=" + this.currentCountryName,
-              type: "GET",
-              dataType: "json",
-              success: (result) => {
-                console.log(result);
+            // Fetch the central latitude and longitude from the map
+            const center = map.getCenter();
+            const lat = center.lat;
+            const lon = center.lng;
 
-                if (result && Array.isArray(result.articles)) {
-                  let modalContent = "";
+            // Fetch country information based on central location
+            try {
+              const geoResult = await this.fetchCountryDataForCentralLocation(
+                lat,
+                lon
+              ); // Assuming you have such a function
 
-                  // Iterate through the news articles and build the modal content
-                  result.articles.forEach((data) => {
-                    modalContent += `
-                      <div class="news-article">
-                        <h5>${data.title}</h5>
-                        <p>Author: ${data.author}</p>
-                        <p>Published at: ${data.publishedAt}</p>
-                        <p>Source: ${data.source.name}</p>
-                        <a href="${data.url}" target="_blank">Read more</a>
-                      </div>
+              if (!geoResult || !geoResult.countryCode) {
+                console.error("Invalid country information.");
+                return;
+              }
+
+              // Now, use the country code to fetch the news
+              const countryCode = geoResult.countryCode;
+
+              $.ajax({
+                url: `./php/fetch_news.php?newsCountry=${countryCode}`,
+                type: "GET",
+                dataType: "json",
+                success: (result) => {
+                  // console.log(result);
+
+                  if (result && Array.isArray(result.news)) {
+                    // Changed from result.articles to result.news for Currents API
+                    let modalContent = "";
+
+                    // Iterate through the news articles and build the modal content
+                    result.news.forEach((data) => {
+                      const date = new Date(data.published);
+                      const formattedDate = `${date.getDate()}/${
+                        date.getMonth() + 1
+                      }/${date.getFullYear()}`;
+                      modalContent += `
+                      <table class="table table-borderless mb-0">
+                        <tr>
+                          <td rowspan="2" style="width: 60%;">
+                            <img class="img-fluid rounded" src="${data.image}" alt="Article Thumbnail" style="height: 100%; width: 100%;">
+                          </td>
+                          <td>
+                            <a href="${data.url}" class="fw-bold fs-6 text-black" target="_blank">${data.title}</a>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td class="align-bottom pb-0">
+                            <p class="fw-light fs-6 mb-1">Published at: ${formattedDate}</p>
+                          </td>
+                        </tr>
+                      </table>
+                      <hr>
                     `;
-                  });
+                    });
 
-                  // Populate the modal with the news articles
-                  document.getElementById("news-data").innerHTML = modalContent;
+                    // Populate the modal with the news articles
+                    document.getElementById("news-data").innerHTML =
+                      modalContent;
 
-                  // Show the modal
-                  $("#news-info-modal").modal("show");
-                } else {
-                  console.error("No news articles found.");
-                }
-              },
-              error: (jqXHR, textStatus, errorThrown) => {
-                console.log(textStatus, errorThrown);
-              },
-            });
+                    // Show the modal
+                    $("#news-info-modal").modal("show");
+                  } else {
+                    console.error("No news articles found.");
+                  }
+                },
+                error: (jqXHR, textStatus, errorThrown) => {
+                  // console.log(textStatus, errorThrown);
+                },
+              });
+            } catch (error) {
+              console.error(
+                "An error occurred while fetching country information:",
+                error
+              );
+            }
           },
         },
       ],
@@ -796,8 +851,8 @@ let currentCountryInfo = {};
           type: "GET",
           dataType: "json",
         });
-        console.log(geoResult);
-        console.log(`Latitude: ${lat}, Longitude: ${lon}`);
+        // console.log(geoResult);
+        // console.log(`Latitude: ${lat}, Longitude: ${lon}`);
 
         const { countryCode, countryName } = geoResult;
 
@@ -815,23 +870,33 @@ let currentCountryInfo = {};
             const population = countryInfo.population || "Unknown";
             const flag =
               countryInfo.flags.svg || "path/to/default/flag/image.png";
-            const capital = countryInfo.capital || "Unknown"; // New field
+            const capital = countryInfo.capital || "Unknown";
             const currencyInfo = countryInfo.currencies || {};
-            const mainCurrencyCode = Object.keys(currencyInfo)[0] || "Unknown"; // Assuming the first key is the main currency
+            const mainCurrencyCode = Object.keys(currencyInfo)[0] || "Unknown";
             const currencyName = currencyInfo[mainCurrencyCode]
               ? currencyInfo[mainCurrencyCode].name
               : "Unknown";
 
-            // Existing code to populate the modal
-            $("#country-title").html(`<h3>${name}</h3>`);
-            $("#country-population").html(`<p>Population: ${population}</p>`);
-            $("#country-flag").html(
-              `<img src="${flag}" alt="Flag of ${name}" width="100">`
-            );
+            // Set the title of the modal
+            $("#countryInfoModalLabel").text(name);
 
-            $("#country-capital").html(`<p>Capital: ${capital}</p>`);
-            $("#country-currency").html(`<p>Currency: ${currencyName}</p>`);
+            // Build the country information layout
+            let countryInfoHTML = `
+              <div class="row">
+                <div class="col-6">
+                  <img class="img-fluid rounded" src="${flag}" alt="Flag of ${name}">
+                </div>
+                <div class="col-6">
+                  <p>Population: ${population}</p>
+                  <p>Capital: ${capital}</p>
+                  <p>Currency: ${currencyName}</p>
+                </div>
+              </div>
+            `;
 
+            $("#country-info-modal .modal-body").html(countryInfoHTML);
+
+            // Show the modal
             $("#country-info-modal").modal("show");
           } else {
             console.error("No country data found.");
@@ -881,7 +946,7 @@ let currentCountryInfo = {};
             fetchAndDisplayCurrencyConversion();
           },
           title: "Show currency conversion",
-          icon: "fa-exchange-alt", // No HTML tags, just the class name
+          icon: "fa fa-exchange", // Updated to Font Awesome 4.7 class
         },
       ],
     });
@@ -974,11 +1039,9 @@ let currentCountryInfo = {};
       }
     }
 
-    // Form submission handling code
-    $("#currency-converter-form").submit(function (event) {
-      event.preventDefault();
+    // Function to perform currency conversion
+    function performCurrencyConversion() {
       if (!globalExchangeRates) {
-        console.error("Exchange rates not available");
         return;
       }
 
@@ -996,7 +1059,16 @@ let currentCountryInfo = {};
           2
         )} ${toCurrency}`
       );
-    });
+    }
+
+    // Add event listeners to input fields
+    $("#from-currency, #to-currency, #amount").on(
+      "input",
+      performCurrencyConversion
+    );
+
+    // Initially perform currency conversion
+    performCurrencyConversion();
 
     //////////////////////////////////
 
