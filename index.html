@@ -14,12 +14,15 @@
   <meta content="https://davidfoxdev.com/gaz" property="og:url"/>
   <link href="icon.png" rel="icon" type="image/png"/>
   <!-- Stylesheets -->
-  <link href="./node_modules/font-awesome/css/font-awesome.min.css" rel="stylesheet"/>
-  <link href="./node_modules/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet"/>
-  <link href="./node_modules/leaflet/dist/leaflet.css" rel="stylesheet"/>
-  <link href="./node_modules/leaflet-routing-machine/dist/leaflet-routing-machine.css" rel="stylesheet"/>
-  <link href="./node_modules/leaflet-search/dist/leaflet-search.min.css" rel="stylesheet"/>
-  <link href="./node_modules/leaflet-easybutton/src/easy-button.css" rel="stylesheet"/>
+<link href="./node_modules/font-awesome/css/font-awesome.min.css" rel="stylesheet"/>
+<link href="./node_modules/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet"/>
+<link href="./node_modules/leaflet/dist/leaflet.css" rel="stylesheet"/>
+<link href="./node_modules/leaflet-routing-machine/dist/leaflet-routing-machine.css" rel="stylesheet"/>
+<link href="./node_modules/leaflet-search/dist/leaflet-search.min.css" rel="stylesheet"/>
+<link href="./node_modules/leaflet-easybutton/src/easy-button.css" rel="stylesheet"/>
+<link href="./node_modules/leaflet-extra-markers/dist/css/leaflet.extra-markers.min.css" rel="stylesheet"/>
+
+
   <!-- Leaflet MarkerCluster CSS and JS -->
 <link rel="stylesheet" href="./node_modules/leaflet.markercluster/dist/MarkerCluster.css" />
 <link rel="stylesheet" href="./node_modules/leaflet.markercluster/dist/MarkerCluster.Default.css" />
@@ -33,6 +36,8 @@
   </link>
  </head>
  <body>
+
+
   <div id="preloader">
   </div>
 
@@ -126,31 +131,107 @@
 
 
 
-  <!-- Country Information Modal -->
+<!-- Country Information Modal -->
 <div class="modal fade" id="country-info-modal" tabindex="-1" aria-labelledby="countryInfoModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-scrollable"> <!-- Added modal-dialog-scrollable for a scrollable modal -->
-    <div class="modal-content bg-light text-dark shadow"> 
-      <div class="modal-header bg-gradient bg-primary text-white"> 
-        <h5 class="modal-title w-100 text-center" id="countryInfoModalLabel"> 
+  <div id="preloader">
+  </div>
+  <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-content bg-light text-dark shadow">
+      <div class="modal-header bg-gradient bg-primary text-white">
+        <h5 class="modal-title w-100 text-center" id="countryInfoModalLabel">
           Country Information
         </h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button> 
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
-        <div id="country-title">
+        <div class="text-center mb-3">
+          <img id="country-flag" class="img-fluid rounded" src="" alt="Flag">
         </div>
-        <div id="country-capital">
-        </div>
-        <div id="country-currency">
-        </div>
-        <div id="country-population">
-        </div>
-        <div id="country-flag"> <!-- Increase flag size -->
-        </div>
+        <table class="table table-striped">
+          <!-- Existing rows -->
+          <tr>
+            <td class="text-center">
+              <i class="fa fa-flag fa-lg text-blue"></i>
+            </td>
+            <td>
+              Capital
+            </td>
+            <td id="country-capital" class="text-end">
+            </td>
+          </tr>
+          <!-- Additional new rows -->
+          <tr>
+            <td class="text-center">
+              <i class="fa fa-globe fa-lg text-blue"></i> <!-- icon for continent -->
+            </td>
+            <td>
+              Continent
+            </td>
+            <td id="country-continent" class="text-end">
+            </td>
+          </tr>
+          <tr>
+            <td class="text-center">
+              <i class="fa fa-language fa-lg text-blue"></i> <!-- icon for languages -->
+            </td>
+            <td>
+              Languages
+            </td>
+            <td id="country-languages" class="text-end">
+            </td>
+          </tr>
+          <tr>
+            <td class="text-center">
+              <i class="fa fa-money fa-lg text-blue"></i>
+            </td>
+            <td>
+              Currency
+            </td>
+            <td id="country-currency" class="text-end">
+            </td>
+          </tr>
+          <tr>
+            <td class="text-center">
+              <i class="fa fa-hashtag fa-lg text-blue"></i> <!-- icon for ISO alpha 2 -->
+            </td>
+            <td>
+              ISO alpha 2
+            </td>
+            <td id="country-iso-alpha2" class="text-end">
+            </td>
+          </tr>
+          <tr>
+            <td class="text-center">
+              <i class="fa fa-hashtag fa-lg text-blue"></i> <!-- icon for ISO alpha 3 -->
+            </td>
+            <td>
+              ISO alpha 3
+            </td>
+            <td id="country-iso-alpha3" class="text-end">
+            </td>
+          </tr>
+          <tr>
+            <td class="text-center">
+              <i class="fa fa-users fa-lg text-blue"></i>
+            </td>
+            <td>
+              Population
+            </td>
+            <td id="country-population" class="text-end">
+            </td>
+          </tr>
+        </table>
+        
+        
+        
       </div>
     </div>
   </div>
 </div>
+
+
+
+
 
 
 
@@ -163,8 +244,8 @@
 
 
     <!-- Weather Modal -->
-<div id="weatherModal" class="modal fade" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="false" aria-labelledby="weatherModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div id="weatherModal" class="modal fade" tabindex="-1" aria-labelledby="weatherModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
     <div class="modal-content shadow">
       <div class="modal-header bg-primary bg-gradient text-white">
         <h5 class="modal-title" id="weatherModalLabel"></h5>
@@ -263,6 +344,8 @@
 <script src="./node_modules/leaflet-search/dist/leaflet-search.min.js"></script>
 <script src="./node_modules/leaflet-easybutton/src/easy-button.js"></script>
 <script src="./node_modules/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+<script src="./node_modules/leaflet-extra-markers/dist/js/leaflet.extra-markers.min.js"></script>
+
 
 
 <!-- Custom JavaScript -->

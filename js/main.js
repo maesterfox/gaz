@@ -145,8 +145,8 @@ class WeatherAPI extends APIHandler {
     // Set today's weather
     $("#todayConditions").html(data.current.condition.text);
     $("#todayIcon").attr("src", data.current.condition.icon);
-    $("#todayMaxTemp").html(data.current.temp_c);
-    $("#todayMinTemp").html(data.current.feelslike_c);
+    $("#todayMaxTemp").html(Math.round(data.current.temp_c)); // Rounded
+    $("#todayMinTemp").html(Math.round(data.current.feelslike_c)); // Rounded
 
     // Populate the 3-day forecast
     for (let i = 0; i < 3; i++) {
@@ -160,8 +160,8 @@ class WeatherAPI extends APIHandler {
 
       $(`#day${dayNumber}Date`).text(dayOfWeek); // Display the day of the week
       $(`#day${dayNumber}Icon`).attr("src", forecast.day.condition.icon);
-      $(`#day${dayNumber}MinTemp`).text(forecast.day.mintemp_c);
-      $(`#day${dayNumber}MaxTemp`).text(forecast.day.maxtemp_c);
+      $(`#day${dayNumber}MinTemp`).text(Math.round(forecast.day.mintemp_c)); // Rounded
+      $(`#day${dayNumber}MaxTemp`).text(Math.round(forecast.day.maxtemp_c)); // Rounded
     }
 
     // Set last updated time
@@ -362,28 +362,32 @@ class MapHandler extends APIHandler {
   }
 
   initMarkerIcons() {
-    this.airportIcon = L.divIcon({
-      className: "custom-marker-icon",
-      html: '<i class="fa fa-plane" style="color: blue;"></i>',
-      iconSize: [48, 48],
+    this.airportIcon = L.ExtraMarkers.icon({
+      icon: "fa-plane",
+      markerColor: "blue",
+      shape: "circle",
+      prefix: "fa",
     });
 
-    this.trainIcon = L.divIcon({
-      className: "custom-marker-icon",
-      html: '<i class="fa fa-train" style="color: red;"></i>',
-      iconSize: [48, 48],
+    this.trainIcon = L.ExtraMarkers.icon({
+      icon: "fa-train",
+      markerColor: "red",
+      shape: "circle",
+      prefix: "fa",
     });
 
-    this.universityIcon = L.divIcon({
-      className: "custom-marker-icon",
-      html: '<i class="fa fa-graduation-cap" style="color: green;"></i>',
-      iconSize: [48, 48],
+    this.universityIcon = L.ExtraMarkers.icon({
+      icon: "fa-graduation-cap",
+      markerColor: "green",
+      shape: "circle",
+      prefix: "fa",
     });
 
-    this.castleIcon = L.divIcon({
-      className: "custom-marker-icon",
-      html: '<i class="fa fa-building" style="color: purple;"></i>',
-      iconSize: [48, 48],
+    this.castleIcon = L.ExtraMarkers.icon({
+      icon: "fa-fort-awesome",
+      markerColor: "purple",
+      shape: "circle",
+      prefix: "fa",
     });
   }
 
@@ -645,7 +649,7 @@ class MapHandler extends APIHandler {
         }
 
         self.border = L.geoJSON(filteredFeatures, {
-          style: { color: "lime", weight: 3, opacity: 0.75 },
+          style: { color: "green", weight: 2, opacity: 0.6 },
         }).addTo(self.map);
 
         if (!self.border) {
@@ -833,7 +837,7 @@ let currentCountryInfo = {};
 
           const [lng, lat] = countryFeature.geometry.coordinates;
           wikidata = countryFeature.properties.wikidata;
-          mapHandler.map.setView([lat, lng], 6);
+          mapHandler.map.setView([lat, lng], 5);
         },
         error: function (error) {
           console.error("Error fetching location data: ", error);
@@ -841,70 +845,81 @@ let currentCountryInfo = {};
       });
     });
 
-    // Country Information fetch from Wiki
-
+    // Country Information fetch from REST Countries API
     async function fetchCountryDataForCentralLocation(lat, lon) {
       try {
-        // Fetch country code and name based on latitude and longitude
+        // Show preloader
+        $("#preloader").show();
+        // Fetch country code based on latitude and longitude
         const geoResult = await $.ajax({
           url: `./php/fetch_geonames.php?lat=${lat}&lng=${lon}`,
           type: "GET",
           dataType: "json",
         });
-        // console.log(geoResult);
-        // console.log(`Latitude: ${lat}, Longitude: ${lon}`);
 
-        const { countryCode, countryName } = geoResult;
+        const { countryCode } = geoResult;
 
         if (countryCode) {
           const countryResult = await $.ajax({
-            url: `./php/fetch_country_info.php?countryCode=${countryCode}`,
+            url: `https://restcountries.com/v3.1/alpha/${countryCode}`,
             type: "GET",
             dataType: "json",
           });
-          // console.log(countryResult);
 
           if (countryResult && countryResult[0]) {
             const countryInfo = countryResult[0];
+
+            // Existing fields
             const name = countryInfo.name.common || "Unknown";
-            const population = countryInfo.population || "Unknown";
             const flag =
               countryInfo.flags.svg || "path/to/default/flag/image.png";
             const capital = countryInfo.capital || "Unknown";
+            const population = countryInfo.population || "Unknown";
+
+            // New fields
+            const continent = countryInfo.region || "Unknown";
+            const languages = countryInfo.languages
+              ? Object.values(countryInfo.languages).join(", ")
+              : "Unknown";
             const currencyInfo = countryInfo.currencies || {};
             const mainCurrencyCode = Object.keys(currencyInfo)[0] || "Unknown";
             const currencyName = currencyInfo[mainCurrencyCode]
               ? currencyInfo[mainCurrencyCode].name
               : "Unknown";
+            const isoAlpha2 = countryInfo.cca2 || "Unknown";
+            const isoAlpha3 = countryInfo.cca3 || "Unknown";
 
-            // Set the title of the modal
+            // Hide preloader
+            $("#preloader").hide();
+
+            // Set the title and populate the modal
             $("#countryInfoModalLabel").text(name);
+            $("#country-flag").attr("src", flag);
+            $("#country-capital").text(capital);
+            $("#country-population").text(population);
 
-            // Build the country information layout
-            let countryInfoHTML = `
-              <div class="row">
-                <div class="col-6">
-                  <img class="img-fluid rounded" src="${flag}" alt="Flag of ${name}">
-                </div>
-                <div class="col-6">
-                  <p>Population: ${population}</p>
-                  <p>Capital: ${capital}</p>
-                  <p>Currency: ${currencyName}</p>
-                </div>
-              </div>
-            `;
-
-            $("#country-info-modal .modal-body").html(countryInfoHTML);
+            // Populate new fields
+            $("#country-continent").text(continent);
+            $("#country-languages").text(languages);
+            $("#country-currency").text(currencyName);
+            $("#country-iso-alpha2").text(isoAlpha2);
+            $("#country-iso-alpha3").text(isoAlpha3);
 
             // Show the modal
             $("#country-info-modal").modal("show");
           } else {
+            $("#preloader").hide();
+
             console.error("No country data found.");
           }
         } else {
+          $("#preloader").hide();
+
           console.error("No country code found.");
         }
       } catch (error) {
+        $("#preloader").hide();
+
         console.error("Error fetching data: ", error);
       }
     }
