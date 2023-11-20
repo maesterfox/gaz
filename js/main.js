@@ -644,7 +644,6 @@ class MapHandler extends APIHandler {
         );
 
         if (filteredFeatures.length === 0) {
-          console.error("No features found for the given country code");
           return;
         }
 
@@ -664,10 +663,10 @@ class MapHandler extends APIHandler {
           return;
         }
 
-        self.map.flyToBounds(bounds, {
-          padding: [35, 35],
-          duration: 2,
-        });
+        // self.map.flyToBounds(bounds, {
+        //   padding: [35, 35],
+        //   duration: 2,
+        // });
       },
       error: function (jqXHR, textStatus, errorThrown) {
         console.log("Error:", textStatus, errorThrown);
@@ -769,6 +768,8 @@ class MapHandler extends APIHandler {
   }
 }
 
+// Use setMapView in both the geolocation and AJAX success callbacks
+
 // Declare wikidata at a broader scope
 let wikidata;
 // Declare currentCountryInfo at a broader scope
@@ -794,12 +795,67 @@ let currentCountryInfo = {};
           });
           $("#country-select").html(options);
           $("#country-select").prop("disabled", false);
+
+          // Now that dropdown is populated, set the geolocation
+          setGeolocation();
         },
         error: function (error) {
           console.error("Error fetching country data: ", error);
         },
       });
     });
+
+    function setGeolocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          function (position) {
+            // console.log(position);
+            const coords = {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+            };
+            getCountryCode(coords);
+          },
+          function (error) {
+            console.error("Geolocation error:", error);
+          }
+        );
+      } else {
+        console.error("Geolocation is not supported by this browser.");
+      }
+    }
+
+    function getCountryCode(coords) {
+      $.ajax({
+        url: "./php/select.php",
+        type: "GET",
+        data: coords,
+        success: function (response) {
+          // console.log("Response from select.php:", response);
+
+          // Parse the response as JSON
+          const parsedResponse = JSON.parse(response);
+          // console.log("Parsed response:", parsedResponse);
+
+          const countryCode = parsedResponse.countryCode;
+          if (countryCode) {
+            $("#country-select").val(countryCode).change();
+          } else {
+            console.error(
+              "Country code not found for the given coordinates",
+              parsedResponse
+            );
+          }
+        },
+        error: function (jqXHR, textStatus, errorThrown) {
+          console.error(
+            "Error fetching country code:",
+            textStatus,
+            errorThrown
+          );
+        },
+      });
+    }
 
     // Add event listener to "Search" button
     $("#country-select").change(function () {
@@ -831,7 +887,6 @@ let currentCountryInfo = {};
             feature.place_type.includes("country")
           );
           if (!countryFeature) {
-            console.error("No matching country found");
             return;
           }
 
