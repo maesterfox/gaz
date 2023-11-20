@@ -599,15 +599,22 @@ class MapHandler extends APIHandler {
         );
         const countryCode = geoResult.countryCode;
 
-        // Fetch and display the border
         if (countryCode) {
-          this.fetchAndDisplayCountryBorder(countryCode);
+          // Update the country select dropdown
+          if (
+            $("#country-select").find(`option[value=${countryCode}]`).length > 0
+          ) {
+            $("#country-select").val(countryCode).change();
+          }
 
-          // Populate airports and train stations based on the country code
+          // Fetch and display the border and other data
+          this.fetchAndDisplayCountryBorder(countryCode);
           this.fetchAirports(countryCode);
           this.fetchTrains(countryCode);
           this.fetchCastles(countryCode);
           this.fetchUniversities(countryCode);
+        } else {
+          console.error("Country code not found based on user location.");
         }
       },
       (error) => {
