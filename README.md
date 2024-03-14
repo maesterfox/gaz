@@ -1,6 +1,8 @@
 
 # Updated README.md for Gazetteer Project
 
+IT Career Switch Project 1
+
 ## Gazetteer: Your Comprehensive Geographical Profiling Tool 🌍
 
 Gazetteer is a cutting-edge mapping application designed with a "mobile-first" approach. Built on a robust stack of modern web technologies, it provides real-time profiling for countries around the world, offering demographic, climatic, and various other types of data. Ideal for researchers, travelers, and geography enthusiasts.
