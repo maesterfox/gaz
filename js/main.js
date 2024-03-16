@@ -1,3 +1,5 @@
+// Full refactor of project JS.
+
 // Loader
 $(window).on("load", function () {
   if ($("#preloader").length) {
