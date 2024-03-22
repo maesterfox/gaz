@@ -1,4 +1,5 @@
 // Full refactor of project JS.
+// MVC Approach
 
 // Loader
 $(window).on("load", function () {
